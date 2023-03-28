@@ -8,7 +8,8 @@ import itertools
 import copy
 import matplotlib.pyplot as plt
 
-MACHEPS = 1e-8
+MACHEPS = 1e-9
+
 def antisymmetrize_2(T,indices):
     # antisymmetrize the residual
     T_anti = np.zeros(T.shape, dtype='complex128')
@@ -292,12 +293,6 @@ def get_excitation_level(f1, f2):
     Get the excitation level between two bit strings f1 and f2, i.e., half the Hamming distance.
     """
     return int(count_set_bits(f1^f2)/2)
-
-def test_bit(f, bit_loc):
-    """
-    Test if bit_loc in f is set. Returns 1 if set, 0 if not set.
-    """
-    return (f & (1<<bit_loc)) >> bit_loc
 
 def annop(bit_string, ispinor):
         """
@@ -786,7 +781,7 @@ class RelForte:
         if (rdm_level > 0):
             if (self.verbose): print(f'... RDM build:                {(_t3-_t2):15.7f} s')
             self.rdms_canon = _rdms
-            self.rdms = _rdms_semican
+            self.rdms = _rdms_semican if (self.semi_can) else _rdms
         if (self.verbose):
             print(f'Total time taken:             {(_t4-_t0):15.7f} s')
             print('='*47)
@@ -1184,10 +1179,12 @@ class RelForte:
             self.relax_energies[irelax, 2] = self.e_casci
 
             if (_verbose): print('{:<30}{:<20}{:<10}'.format(f'<Psi^({irelax:d})|Hbar^({irelax:d})|Psi^({irelax:d})>',f'{self.e_dsrg_mrpt2.real+self.e_casci:.7f}',f'{self.relax_energies[irelax][0]-self.relax_energies[irelax-1][1]:.5e}'))
-
             if (nrelax == 2 and irelax == 1): break
+            
             self.dsrg_mrpt2_reference_relaxation(_eri)
+
             self.relax_energies[irelax, 1] = self.e_dsrg_mrpt2_relaxed
+            
             if (_verbose): print(f'   -Erelax{self.e_relax:.7f}       ')
             if (_verbose): print('{:<30}{:<20}{:<10}'.format(f'<Psi^({irelax:d})|Hbar^({irelax+1:d})|Psi^({irelax:d})>',f'{self.e_dsrg_mrpt2_relaxed:.7f}',f'{self.relax_energies[irelax][1]-self.relax_energies[irelax][0]:.5e}'))
             if (self.test_relaxation_convergence(irelax, relax_convergence)): break
@@ -1224,16 +1221,16 @@ class RelForte:
             _Eref_test = self.nuclear_repulsion
             _Eref_test += np.einsum('mm->',_hcore[self.core,self.core])
             _Eref_test += 0.5 * np.einsum('mnmn->',_eri[self.core,self.core,self.core,self.core])
-
             _Eref_test += np.einsum('mumv,uv->',_eri[self.core,self.active,self.core,self.active],self.rdms['1rdm'])
-
             _Eref_test += np.einsum('uv,uv->',_hcore[self.active,self.active],self.rdms['1rdm'])
             _Eref_test += 0.25 * np.einsum('uvxy,uvxy->',_eri[self.active,self.active,self.active,self.active],self.rdms['2rdm'])
+
             self.e_casci = _Eref_test.real
             if (_verbose): print(f'   -Eref  {self.e_casci:.7f}       ')
-            if (_verbose): print(f'   -Ecorr {self.e_dsrg_mrpt2.real:.7f}       ')
+            
             self.dsrg_mrpt2_update(s, _eri)
-
+            if (_verbose): print(f'   -Ecorr {self.e_dsrg_mrpt2.real:.7f}       ')
+            
         self.verbose = _verbose
 
         _t3 = time.time()
@@ -1303,10 +1300,16 @@ class RelForte:
         self.F_1_tilde = np.conj(self.fock[self.hole,self.part].copy())
         self.F_1_tilde += self.F_1_tilde * self.d1_exp
         self.F_1_tilde += np.multiply(self.d1_exp, np.einsum('xu,iuax,xu->ia',self.denom_act,self.T2_1[:,self.ha,:,self.pa],self.cumulants['gamma1']))
-        self.F_1_tilde = np.conj(self.F_1_tilde)
+        # This conjugation is subtle: self.fock[i,a] accesses <i|f|a>, so np.conj(self.fock[i,a]) = <a|f|i> = f_a^i
+        # Now F_1_tilde_a^i = f_a^i + ..., so the three lines above calculates F_1_tilde_a^i = <a|ftilde|i>, 
+        # but we want to store <i|ftilde|a>, so we take the complex conjugate.
+        self.F_1_tilde = np.conj(self.F_1_tilde) 
 
-        self.V_1_tilde = (_eri[self.hole,self.hole,self.part,self.part].copy())
+        self.V_1_tilde = _eri[self.hole,self.hole,self.part,self.part].copy()
         self.V_1_tilde += self.V_1_tilde * self.d2_exp
+        # V_1_tilde_ab^ij = <ab|vtilde|ij> = <ab||ij>(1+exp)
+        # As we want to store <ij|vtilde|ab>, so we should properly take two complex conjugates, 
+        # but since the exp part is real, we can cancel out the two conjugations.
 
         self.e_dsrg_mrpt2 = dsrg_HT(self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
 
@@ -1336,7 +1339,14 @@ class RelForte:
 
         _ref_relax_hamil = self.form_cas_hamiltonian(_hbar1_canon, _hbar2_canon)
         self.dsrg_mrpt2_relax_eigvals, self.dsrg_mrpt2_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
-        self.e_relax = (self.dsrg_mrpt2_relax_eigvals[0] + _e_scalar).real
+
+        self.e_relax = (self.dsrg_mrpt2_relax_eigvals[0] + _e_scalar)
+        try:
+            assert(abs(self.e_relax.imag) < MACHEPS)
+        except AssertionError:
+            print(f'Imaginary part of DSRG-MRPT2 relaxation energy, {self.e_relax.imag} is larger than {MACHEPS}')
+        self.e_relax = self.e_relax.real
+        
         self.e_dsrg_mrpt2_relaxed = (self.e_casci + self.e_dsrg_mrpt2 + self.e_relax).real
 
     def read_in_mo(self, relativistic, mo_coeff_in='mo_coeff.npy', frozen=None, debug=False):
