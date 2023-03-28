@@ -8,7 +8,7 @@ import itertools
 import copy
 import matplotlib.pyplot as plt
 
-MACHEPS = 1e-8
+MACHEPS = 1e-9
 
 def antisymmetrize_2(T,indices):
     # antisymmetrize the residual
@@ -1054,12 +1054,12 @@ class RelForte:
                     self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
             if (rdm_level>=2):
                 if (_nelec>=2):
-                    _rdms['2rdm'] = self.get_2_rdm(self.cas, _psi)
+                    _rdms['2rdm'] = get_2_rdm(self.det_strings, self.cas, _psi, self.verbose)
                 else:
                     _rdms['2rdm'] = np.zeros((self.cas[1],self.cas[1],self.cas[1],self.cas[1]), dtype='complex128')
             if (rdm_level>=3):
                 if (_nelec>=3):
-                    _rdms['3rdm'] = self.get_3_rdm(self.cas, _psi)
+                    _rdms['3rdm'] = get_3_rdm(self.det_strings, self.cas, _psi, self.verbose)
                 else:
                     _rdms['3rdm'] = np.zeros((self.cas[1],self.cas[1],self.cas[1],self.cas[1],self.cas[1],self.cas[1]), dtype='complex128')
 
@@ -1379,7 +1379,7 @@ class RelForte:
             _hbar1_canon = _hbar1
             _hbar2_canon = _hbar2
 
-        _ref_relax_hamil = self.form_cas_hamiltonian(_hbar1_canon, _hbar2_canon)
+        _ref_relax_hamil = form_cas_hamiltonian(_hbar1_canon, _hbar2_canon, self.det_strings, self.verbose, self.cas)
         self.dsrg_mrpt2_relax_eigvals, self.dsrg_mrpt2_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
 
         self.e_relax = (self.dsrg_mrpt2_relax_eigvals[0] + _e_scalar)
@@ -1635,7 +1635,6 @@ class RelForte:
             print(f'....integral retrieval:      {(_t1-_t0):15.7f} s')
             print(f'....integral transformation: {(_t2-_t1):15.7f} s')
 
-# %%
 def enumerate_determinants(f0, nelec, norb, exlvl):
     occ_vec = bstring_to_occ_vec(f0, nelec, norb)
     unocc_vec = bstring_to_unocc_vec(f0, nelec, norb)
