@@ -8,7 +8,7 @@ import itertools
 import copy
 import matplotlib.pyplot as plt
 
-MACHEPS = 1e-9
+MACHEPS = 1e-8
 
 def antisymmetrize_2(T,indices):
     # antisymmetrize the residual
@@ -276,12 +276,6 @@ def clear_bit(f, bit_loc):
     """
     return f & ~(1<<bit_loc)
 
-def test_bit(f, bit_loc):
-    """
-    Test if bit_loc in f is set. Returns 1 if set, 0 if not set.
-    """
-    return (f & (1<<bit_loc)) >> bit_loc
-
 def count_set_bits(f):
     """
     Return the number of set (1) bits in the bit string f.
@@ -293,6 +287,12 @@ def get_excitation_level(f1, f2):
     Get the excitation level between two bit strings f1 and f2, i.e., half the Hamming distance.
     """
     return int(count_set_bits(f1^f2)/2)
+
+def test_bit(f, bit_loc):
+    """
+    Test if bit_loc in f is set. Returns 1 if set, 0 if not set.
+    """
+    return (f & (1<<bit_loc)) >> bit_loc
 
 def annop(bit_string, ispinor):
         """
@@ -319,6 +319,17 @@ def bstring_to_occ_vec(f, nelec, norbs):
             if (nfound==nelec):
                 break
     return occ_vec
+
+def bstring_to_unocc_vec(f, nelec, norbs):
+    unocc_vec = np.zeros(norbs-nelec, dtype='int')
+    nfound = 0
+    for i in range(norbs):
+        if test_bit(f, i)==0:
+            unocc_vec[nfound] = i
+            nfound += 1
+            if (nfound==norbs-nelec):
+                break
+    return unocc_vec
 
 def get_excit_connection(f1, f2, exlvl, nelec, norbs):
     excit_bstring = f1^f2
@@ -408,10 +419,351 @@ def sph_to_spinor(mol, coeffs):
     # This means to rotate this linear combination of real spherical p spinors to p_{1/2,-1/2} 
     # (i.e., [-1, 0, 0, 0, 0, 0] in the complex representation),
     # we need to dot it with [1, 0, i, 0, 0, -1], which suggests that we need to take the complex conjugate of the rotmat.
-    mo_rot[:nspinor,:] = np.einsum('uv,ui->vi', np.conj(rotmat), coeffs[:nspinor,:])
-    mo_rot[nspinor:,:] = np.einsum('uv,ui->vi', np.conj(rotmat), coeffs[nspinor:,:])
+    mo_rot[:nspinor,:] = np.einsum('uv,ui->vi', np.conjugate(rotmat), coeffs[:nspinor,:])
+    mo_rot[nspinor:,:] = np.einsum('uv,ui->vi', np.conjugate(rotmat), coeffs[nspinor:,:])
     
     return mo_rot, rotmat
+
+def form_cas_hamiltonian(H1body, H2body, det_strings, verbose, cas, ncore=0):
+    ncombs = len(det_strings)
+    _mem = ncombs**2*16/1e9
+    if (_mem < 1.0):
+        if (verbose): print(f'Will now allocate {_mem*1000:.3f} MB memory for the CASCI Hamiltonian!')
+    else:
+        if (verbose): print(f'Will now allocate {_mem:.3f} GB memory for the CASCI Hamiltonian!')
+    _hamil_det = np.zeros((ncombs,ncombs), dtype='complex128')
+    for i in range(ncombs):
+        for j in range(i+1):
+            exlvl = get_excitation_level(det_strings[i], det_strings[j])
+            if (exlvl <= 2):
+                if (i==j):
+                    occ = bstring_to_occ_vec(det_strings[i], *cas)
+                    _hamil_det[i,i] = 0
+                    for iocc in occ:
+                        _hamil_det[i,i] += H1body[iocc,iocc]
+                        for jocc in occ:
+                            _hamil_det[i,i] += 0.5*H2body[iocc+ncore,jocc+ncore,iocc+ncore,jocc+ncore]
+                elif (exlvl == 1):
+                    occ = bstring_to_occ_vec(det_strings[i], *cas)
+                    conn, perm = get_excit_connection(det_strings[i], det_strings[j], exlvl, *cas)
+                    _hamil_det[i,j] = H1body[conn[0],conn[1]]
+                    for iocc in occ:
+                        _hamil_det[i,j] += H2body[conn[0]+ncore, iocc+ncore, conn[1]+ncore, iocc+ncore]
+
+                    _hamil_det[i,j] *= perm
+                    _hamil_det[j,i] = np.conjugate(_hamil_det[i,j])
+                elif (exlvl == 2):
+                    conn, perm = get_excit_connection(det_strings[i], det_strings[j], exlvl, *cas)
+                    _hamil_det[i,j] = perm*H2body[conn[0][0]+ncore, conn[0][1]+ncore, conn[1][0]+ncore, conn[1][1]+ncore]
+                    _hamil_det[j,i] = np.conjugate(_hamil_det[i,j])         
+    return _hamil_det
+
+def get_hamil_element(f0, f1, H1body, H2body, cas, ncore=0):
+    """
+    <f0|H|f1>
+    """
+    _hmatel = 0.0j
+    exlvl = get_excitation_level(f0, f1)
+    if (exlvl <= 2):
+        if (exlvl == 0):
+            occ = bstring_to_occ_vec(f0, *cas)
+            _hmatel = 0
+            for iocc in occ:
+                _hmatel += H1body[iocc,iocc]
+                for jocc in occ:
+                    _hmatel += 0.5*H2body[iocc+ncore,jocc+ncore,iocc+ncore,jocc+ncore]
+        elif (exlvl == 1):
+            occ = bstring_to_occ_vec(f0, *cas)
+            conn, perm = get_excit_connection(f0, f1, exlvl, *cas)
+            _hmatel = H1body[conn[0],conn[1]]
+            for iocc in occ:
+                _hmatel += H2body[conn[0]+ncore, iocc+ncore, conn[1]+ncore, iocc+ncore]
+            _hmatel *= perm
+        elif (exlvl == 2):
+            conn, perm = get_excit_connection(f0, f1, exlvl, *cas)
+            _hmatel = perm*H2body[conn[0][0]+ncore, conn[0][1]+ncore, conn[1][0]+ncore, conn[1][1]+ncore]
+    
+    return _hmatel
+
+def form_cas_determinant_strings(norbs, nelec):
+    """
+    Returns the unrestricted (no spin or spatial symmetry imposed) list of bitstrings in a (nelec, n(spin(or))orbs) CAS.
+    """
+    ncombs = scipy.special.comb(norbs, nelec, exact=True)
+    det_strings = list(map(set_bit, list(itertools.combinations(range(norbs),nelec))))
+    assert(len(det_strings) == ncombs)
+
+    return ncombs, det_strings
+
+def get_1_rdm(det_strings, cas, psi, verbose):
+    _t0 = time.time()
+    _rdm = np.zeros((cas[1],cas[1]), dtype='complex128')
+    for i in range(len(det_strings)):
+        occ_vec = bstring_to_occ_vec(det_strings[i], *cas)
+        contrib = np.conjugate(psi[i])*psi[i]
+        for p in occ_vec:
+            _rdm[p, p] += contrib
+        for j in range(len(det_strings)):
+            if (get_excitation_level(det_strings[i], det_strings[j]) == 1):
+                [[p], [q]], perm = get_excit_connection(det_strings[i], det_strings[j], 1, *cas)
+                _rdm[p, q] += perm*np.conjugate(psi[i])*psi[j]
+    _t1 = time.time()
+    if (verbose): print(f'Time taken for 1-RDM build:  {(_t1-_t0):15.7f} s')
+    return _rdm
+
+def get_2_rdm(det_strings, cas, psi, verbose):
+    _t0 = time.time()
+    _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+    for i in range(len(det_strings)):
+        # <p+ q+ q p>
+        occ_vec = bstring_to_occ_vec(det_strings[i], *cas)
+        # get all possible pairs of occupied spinorb
+        contrib = np.conjugate(psi[i])*psi[i]
+        for ip, p in enumerate(occ_vec):
+            for q in occ_vec[:ip]:
+                _rdm[p, q, p, q] += contrib
+                _rdm[p, q, q, p] -= contrib
+                _rdm[q, p, p, q] -= contrib
+                _rdm[q, p, q, p] += contrib
+        
+        for j in range(len(det_strings)):
+            exlvl = get_excitation_level(det_strings[i], det_strings[j])
+            
+            if (exlvl==1):
+                # We need to accumulate all <p+ q+ q r>, it's sufficient to get the parity of <p+ r> since q+ q always cancel out
+                [[p],[r]], perm = get_excit_connection(det_strings[i], det_strings[j], 1, *cas)
+                f = annop(det_strings[i],p)[1]
+                occ_vec = bstring_to_occ_vec(f, cas[0]-1, cas[1])
+                contrib = perm*np.conjugate(psi[i])*psi[j]
+                for q in occ_vec:
+                    _rdm[p, q, r, q] += contrib
+                    _rdm[p, q, q, r] -= contrib
+                    _rdm[q, p, r, q] -= contrib
+                    _rdm[q, p, q, r] += contrib
+            elif (exlvl==2):
+                # <p+ q+ s r>
+                conn, perm = get_excit_connection(det_strings[i], det_strings[j], 2, *cas)
+                p, q = conn[0] # get_excit_connection's perm is <q+ p+ r s>
+                r, s = conn[1] # conn is in ascending order in spinor index, 
+                contrib = perm*np.conjugate(psi[i])*psi[j]
+                _rdm[p, q, r, s] += contrib
+                _rdm[p, q, s, r] -= contrib
+                _rdm[q, p, r, s] -= contrib
+                _rdm[q, p, s, r] += contrib
+    _t1 = time.time()
+    if (verbose): print(f'Time taken for 2-RDM build:  {(_t1-_t0):15.7f} s')
+    return _rdm
+
+def get_3_rdm(det_strings, cas, psi, verbose):
+    """
+    gamma3^{pqr}_{stu} = <p+ q+ r+ u t s>
+    """
+    _t0 = time.time()
+    _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+    for i in range(len(det_strings)):
+        occ_vec = bstring_to_occ_vec(det_strings[i], *cas)
+        # get all possible triplets of occupied spinors
+        contrib = np.conjugate(psi[i])*psi[i]
+        for ip, p in enumerate(occ_vec):
+            for iq, q in enumerate(occ_vec[:ip]):
+                for r in occ_vec[:iq]:
+                    _rdm[p, q, r, p, q, r] += contrib
+                    _rdm[q, r, p, p, q, r] += contrib
+                    _rdm[r, p, q, p, q, r] += contrib
+                    _rdm[p, r, q, p, q, r] -= contrib
+                    _rdm[r, q, p, p, q, r] -= contrib
+                    _rdm[q, p, r, p, q, r] -= contrib
+                        
+                    _rdm[p, q, r, q, r, p] += contrib
+                    _rdm[q, r, p, q, r, p] += contrib
+                    _rdm[r, p, q, q, r, p] += contrib
+                    _rdm[p, r, q, q, r, p] -= contrib
+                    _rdm[r, q, p, q, r, p] -= contrib
+                    _rdm[q, p, r, q, r, p] -= contrib
+                    
+                    _rdm[p, q, r, r, p, q] += contrib
+                    _rdm[q, r, p, r, p, q] += contrib
+                    _rdm[r, p, q, r, p, q] += contrib
+                    _rdm[p, r, q, r, p, q] -= contrib
+                    _rdm[r, q, p, r, p, q] -= contrib
+                    _rdm[q, p, r, r, p, q] -= contrib
+
+                    _rdm[p, q, r, p, r, q] -= contrib
+                    _rdm[q, r, p, p, r, q] -= contrib
+                    _rdm[r, p, q, p, r, q] -= contrib
+                    _rdm[p, r, q, p, r, q] += contrib
+                    _rdm[r, q, p, p, r, q] += contrib
+                    _rdm[q, p, r, p, r, q] += contrib
+                    
+                    _rdm[p, q, r, r, q, p] -= contrib
+                    _rdm[q, r, p, r, q, p] -= contrib
+                    _rdm[r, p, q, r, q, p] -= contrib
+                    _rdm[p, r, q, r, q, p] += contrib
+                    _rdm[r, q, p, r, q, p] += contrib
+                    _rdm[q, p, r, r, q, p] += contrib
+                    
+                    _rdm[p, q, r, q, p, r] -= contrib
+                    _rdm[q, r, p, q, p, r] -= contrib
+                    _rdm[r, p, q, q, p, r] -= contrib
+                    _rdm[p, r, q, q, p, r] += contrib
+                    _rdm[r, q, p, q, p, r] += contrib
+                    _rdm[q, p, r, q, p, r] += contrib
+        
+        for j in range(len(det_strings)):
+            exlvl = get_excitation_level(det_strings[i], det_strings[j])
+            
+            if (exlvl==1):
+                # We need to accumulate all <p+ q+ r+ r q s>, it's sufficient to get the parity of <p+ s> since q+r+ rq always cancel out
+                [[p], [s]], perm = get_excit_connection(det_strings[i], det_strings[j], 1, *cas)
+                f = annop(det_strings[i],p)[1]
+                occ_vec = bstring_to_occ_vec(f, cas[0]-1, cas[1])
+                contrib = perm*np.conjugate(psi[i])*psi[j]
+                for iq, q in enumerate(occ_vec):
+                    # q cannot be == r as violates exclusion principle
+                    for r in occ_vec[:iq]:
+                        _rdm[p, q, r, s, q, r] += contrib
+                        _rdm[q, r, p, s, q, r] += contrib
+                        _rdm[r, p, q, s, q, r] += contrib
+                        _rdm[p, r, q, s, q, r] -= contrib
+                        _rdm[r, q, p, s, q, r] -= contrib
+                        _rdm[q, p, r, s, q, r] -= contrib
+
+                        _rdm[p, q, r, q, r, s] += contrib
+                        _rdm[q, r, p, q, r, s] += contrib
+                        _rdm[r, p, q, q, r, s] += contrib
+                        _rdm[p, r, q, q, r, s] -= contrib
+                        _rdm[r, q, p, q, r, s] -= contrib
+                        _rdm[q, p, r, q, r, s] -= contrib
+
+                        _rdm[p, q, r, r, s, q] += contrib
+                        _rdm[q, r, p, r, s, q] += contrib
+                        _rdm[r, p, q, r, s, q] += contrib
+                        _rdm[p, r, q, r, s, q] -= contrib
+                        _rdm[r, q, p, r, s, q] -= contrib
+                        _rdm[q, p, r, r, s, q] -= contrib
+
+                        _rdm[p, q, r, s, r, q] -= contrib
+                        _rdm[q, r, p, s, r, q] -= contrib
+                        _rdm[r, p, q, s, r, q] -= contrib
+                        _rdm[p, r, q, s, r, q] += contrib
+                        _rdm[r, q, p, s, r, q] += contrib
+                        _rdm[q, p, r, s, r, q] += contrib
+
+                        _rdm[p, q, r, r, q, s] -= contrib
+                        _rdm[q, r, p, r, q, s] -= contrib
+                        _rdm[r, p, q, r, q, s] -= contrib
+                        _rdm[p, r, q, r, q, s] += contrib
+                        _rdm[r, q, p, r, q, s] += contrib
+                        _rdm[q, p, r, r, q, s] += contrib
+
+                        _rdm[p, q, r, q, s, r] -= contrib
+                        _rdm[q, r, p, q, s, r] -= contrib
+                        _rdm[r, p, q, q, s, r] -= contrib
+                        _rdm[p, r, q, q, s, r] += contrib
+                        _rdm[r, q, p, q, s, r] += contrib
+                        _rdm[q, p, r, q, s, r] += contrib
+            if (exlvl==2):
+                # We need to accumulate all <p+ q+ r+ r t s>
+                conn, perm = get_excit_connection(det_strings[i], det_strings[j], 2, *cas)
+                p, q = conn[0] # get_excit_connection's perm is <q+ p+ r s>
+                s, t = conn[1] # conn is in ascending order in spinor index, 
+                f = annop_mult(det_strings[i],conn[0])[1]
+                occ_vec = bstring_to_occ_vec(f, cas[0]-2, cas[1])
+                contrib = perm*np.conjugate(psi[i])*psi[j]
+                for r in occ_vec:                       
+                    _rdm[p, q, r, s, t, r] += contrib
+                    _rdm[q, r, p, s, t, r] += contrib
+                    _rdm[r, p, q, s, t, r] += contrib
+                    _rdm[p, r, q, s, t, r] -= contrib
+                    _rdm[r, q, p, s, t, r] -= contrib
+                    _rdm[q, p, r, s, t, r] -= contrib
+
+                    _rdm[p, q, r, t, r, s] += contrib
+                    _rdm[q, r, p, t, r, s] += contrib
+                    _rdm[r, p, q, t, r, s] += contrib
+                    _rdm[p, r, q, t, r, s] -= contrib
+                    _rdm[r, q, p, t, r, s] -= contrib
+                    _rdm[q, p, r, t, r, s] -= contrib
+
+                    _rdm[p, q, r, r, s, t] += contrib
+                    _rdm[q, r, p, r, s, t] += contrib
+                    _rdm[r, p, q, r, s, t] += contrib
+                    _rdm[p, r, q, r, s, t] -= contrib
+                    _rdm[r, q, p, r, s, t] -= contrib
+                    _rdm[q, p, r, r, s, t] -= contrib
+
+                    _rdm[p, q, r, s, r, t] -= contrib
+                    _rdm[q, r, p, s, r, t] -= contrib
+                    _rdm[r, p, q, s, r, t] -= contrib
+                    _rdm[p, r, q, s, r, t] += contrib
+                    _rdm[r, q, p, s, r, t] += contrib
+                    _rdm[q, p, r, s, r, t] += contrib
+
+                    _rdm[p, q, r, r, t, s] -= contrib
+                    _rdm[q, r, p, r, t, s] -= contrib
+                    _rdm[r, p, q, r, t, s] -= contrib
+                    _rdm[p, r, q, r, t, s] += contrib
+                    _rdm[r, q, p, r, t, s] += contrib
+                    _rdm[q, p, r, r, t, s] += contrib
+
+                    _rdm[p, q, r, t, s, r] -= contrib
+                    _rdm[q, r, p, t, s, r] -= contrib
+                    _rdm[r, p, q, t, s, r] -= contrib
+                    _rdm[p, r, q, t, s, r] += contrib
+                    _rdm[r, q, p, t, s, r] += contrib
+                    _rdm[q, p, r, t, s, r] += contrib
+            if (exlvl==3):
+                conn, perm = get_excit_connection(det_strings[i], det_strings[j], 3, *cas)
+                p, q, r = conn[0]
+                s, t, u = conn[1]
+                
+                contrib = perm*np.conjugate(psi[i])*psi[j]
+                
+                _rdm[p, q, r, s, t, u] += contrib
+                _rdm[q, r, p, s, t, u] += contrib
+                _rdm[r, p, q, s, t, u] += contrib
+                _rdm[p, r, q, s, t, u] -= contrib
+                _rdm[r, q, p, s, t, u] -= contrib
+                _rdm[q, p, r, s, t, u] -= contrib
+
+                _rdm[p, q, r, t, u, s] += contrib
+                _rdm[q, r, p, t, u, s] += contrib
+                _rdm[r, p, q, t, u, s] += contrib
+                _rdm[p, r, q, t, u, s] -= contrib
+                _rdm[r, q, p, t, u, s] -= contrib
+                _rdm[q, p, r, t, u, s] -= contrib
+
+                _rdm[p, q, r, u, s, t] += contrib
+                _rdm[q, r, p, u, s, t] += contrib
+                _rdm[r, p, q, u, s, t] += contrib
+                _rdm[p, r, q, u, s, t] -= contrib
+                _rdm[r, q, p, u, s, t] -= contrib
+                _rdm[q, p, r, u, s, t] -= contrib
+
+                _rdm[p, q, r, s, u, t] -= contrib
+                _rdm[q, r, p, s, u, t] -= contrib
+                _rdm[r, p, q, s, u, t] -= contrib
+                _rdm[p, r, q, s, u, t] += contrib
+                _rdm[r, q, p, s, u, t] += contrib
+                _rdm[q, p, r, s, u, t] += contrib
+
+                _rdm[p, q, r, u, t, s] -= contrib
+                _rdm[q, r, p, u, t, s] -= contrib
+                _rdm[r, p, q, u, t, s] -= contrib
+                _rdm[p, r, q, u, t, s] += contrib
+                _rdm[r, q, p, u, t, s] += contrib
+                _rdm[q, p, r, u, t, s] += contrib
+
+                _rdm[p, q, r, t, s, u] -= contrib
+                _rdm[q, r, p, t, s, u] -= contrib
+                _rdm[r, p, q, t, s, u] -= contrib
+                _rdm[p, r, q, t, s, u] += contrib
+                _rdm[r, q, p, t, s, u] += contrib
+                _rdm[q, p, r, t, s, u] += contrib
+    _t1 = time.time()
+    if (verbose): print(f'Time taken for 3-RDM build:  {(_t1-_t0):15.7f} s')
+    return _rdm
+
 
 class RelForte:
     def __init__(self, mol, c0=None, verbose=True, density_fitting=False, decontract=False):
@@ -492,9 +844,9 @@ class RelForte:
         # Run relativistic Dirac-Hartree-Fock
         if (self.density_fitting):
             if (self.verbose): print('{:#^47}'.format('Enabling density fitting!')) 
-            self.dhf = pyscf.scf.DHF(self.mol).density_fit()
+            self.dhf = pyscf.scf.dhf.UDHF(self.mol).density_fit()
         else:
-            self.dhf = pyscf.scf.DHF(self.mol)
+            self.dhf = pyscf.scf.dhf.UDHF(self.mol)
 
         self.dhf.with_gaunt = with_gaunt
         self.dhf.with_breit = with_breit
@@ -668,13 +1020,12 @@ class RelForte:
         else:
             _hcore_cas = _hcore
             
-        self.form_cas_determinant_strings(_norbs, _nelec)
-        _hamil = self.form_cas_hamiltonian(_hcore_cas, _eri, _ncore=self.ncore)
+        self.ncombs, self.det_strings = form_cas_determinant_strings(_norbs, _nelec)
+        _hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, ncore=self.ncore)
 
         _t1 = time.time()
         
         self.casci_eigvals, self.casci_eigvecs = np.linalg.eigh(_hamil)
-        #self.fci_eigvals += self.nuclear_repulsion
         _t2 = time.time()
                 
         if (rdm_level>0):
@@ -686,7 +1037,7 @@ class RelForte:
             _rdms = {'max_rdm_level':rdm_level}
             if (rdm_level>=1):
                 _psi = self.casci_eigvecs[:,0]
-                _rdms['1rdm'] = self.get_1_rdm(self.cas, _psi)
+                _rdms['1rdm'] = get_1_rdm(self.det_strings, self.cas, _psi, self.verbose)
                 _gen_fock_canon = _hcore.copy() + np.einsum('piqi->pq',_eri[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri[:,self.active,:,self.active],_rdms['1rdm'])
                 self.fock = _gen_fock_canon
                 if (semi_canonicalize):
@@ -781,318 +1132,11 @@ class RelForte:
         if (rdm_level > 0):
             if (self.verbose): print(f'... RDM build:                {(_t3-_t2):15.7f} s')
             self.rdms_canon = _rdms
-            self.rdms = _rdms_semican if (self.semi_can) else _rdms
+            self.rdms = _rdms_semican
         if (self.verbose):
             print(f'Total time taken:             {(_t4-_t0):15.7f} s')
             print('='*47)
-        
-    def form_cas_determinant_strings(self, _norbs, _nelec):
-        self.ncombs = scipy.special.comb(_norbs, _nelec, exact=True)
-        self.det_strings = list(map(set_bit, list(itertools.combinations(range(_norbs),_nelec))))
-        assert(len(self.det_strings) == self.ncombs)
     
-    def form_cas_hamiltonian(self, H1body, H2body, _ncore=0):
-        _mem = self.ncombs**2*16/1e9
-        if (_mem < 1.0):
-            if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB memory for the CASCI Hamiltonian!')
-        else:
-            if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the CASCI Hamiltonian!')
-        _hamil_det = np.zeros((self.ncombs,self.ncombs), dtype='complex128')
-        for i in range(self.ncombs):
-            for j in range(i+1):
-                exlvl = get_excitation_level(self.det_strings[i], self.det_strings[j])
-                if (exlvl <= 2):
-                    if (i==j):
-                        occ = bstring_to_occ_vec(self.det_strings[i], *self.cas)
-                        _hamil_det[i,i] = 0
-                        for iocc in occ:
-                            _hamil_det[i,i] += H1body[iocc,iocc]
-                            for jocc in occ:
-                                _hamil_det[i,i] += 0.5*H2body[iocc+_ncore,jocc+_ncore,iocc+_ncore,jocc+_ncore]
-                    elif (exlvl == 1):
-                        occ = bstring_to_occ_vec(self.det_strings[i], *self.cas)
-                        conn, perm = get_excit_connection(self.det_strings[i], self.det_strings[j], exlvl, *self.cas)
-                        _hamil_det[i,j] = H1body[conn[0],conn[1]]
-                        for iocc in occ:
-                            _hamil_det[i,j] += H2body[conn[0]+_ncore, iocc+_ncore, conn[1]+_ncore, iocc+_ncore]
-
-                        _hamil_det[i,j] *= perm
-                        _hamil_det[j,i] = np.conj(_hamil_det[i,j])
-                    elif (exlvl == 2):
-                        conn, perm = get_excit_connection(self.det_strings[i], self.det_strings[j], exlvl, *self.cas)
-                        _hamil_det[i,j] = perm*H2body[conn[0][0]+_ncore, conn[0][1]+_ncore, conn[1][0]+_ncore, conn[1][1]+_ncore]
-                        _hamil_det[j,i] = np.conj(_hamil_det[i,j])         
-        return _hamil_det
-        
-    def get_1_rdm(self, cas, psi):
-        _t0 = time.time()
-        _rdm = np.zeros((cas[1],cas[1]), dtype='complex128')
-        for i in range(self.ncombs):
-            occ_vec = bstring_to_occ_vec(self.det_strings[i], *cas)
-            contrib = np.conj(psi[i])*psi[i]
-            for p in occ_vec:
-                _rdm[p, p] += contrib
-            for j in range(self.ncombs):
-                if (get_excitation_level(self.det_strings[i], self.det_strings[j]) == 1):
-                    [[p], [q]], perm = get_excit_connection(self.det_strings[i], self.det_strings[j], 1, *cas)
-                    _rdm[p, q] += perm*np.conj(psi[i])*psi[j]
-        _t1 = time.time()
-        if (self.verbose): print(f'Time taken for 1-RDM build:  {(_t1-_t0):15.7f} s')
-        return _rdm
-    
-    def get_2_rdm(self, cas, psi):
-        _t0 = time.time()
-        _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
-        for i in range(self.ncombs):
-            # <p+ q+ q p>
-            occ_vec = bstring_to_occ_vec(self.det_strings[i], *cas)
-            # get all possible pairs of occupied spinorb
-            contrib = np.conj(psi[i])*psi[i]
-            for ip, p in enumerate(occ_vec):
-                for q in occ_vec[:ip]:
-                    _rdm[p, q, p, q] += contrib
-                    _rdm[p, q, q, p] -= contrib
-                    _rdm[q, p, p, q] -= contrib
-                    _rdm[q, p, q, p] += contrib
-            
-            for j in range(self.ncombs):
-                exlvl = get_excitation_level(self.det_strings[i], self.det_strings[j])
-                
-                if (exlvl==1):
-                    # We need to accumulate all <p+ q+ q r>, it's sufficient to get the parity of <p+ r> since q+ q always cancel out
-                    [[p],[r]], perm = get_excit_connection(self.det_strings[i], self.det_strings[j], 1, *cas)
-                    f = annop(self.det_strings[i],p)[1]
-                    occ_vec = bstring_to_occ_vec(f, cas[0]-1, cas[1])
-                    contrib = perm*np.conj(psi[i])*psi[j]
-                    for q in occ_vec:
-                        _rdm[p, q, r, q] += contrib
-                        _rdm[p, q, q, r] -= contrib
-                        _rdm[q, p, r, q] -= contrib
-                        _rdm[q, p, q, r] += contrib
-                elif (exlvl==2):
-                    # <p+ q+ s r>
-                    conn, perm = get_excit_connection(self.det_strings[i], self.det_strings[j], 2, *cas)
-                    p, q = conn[0] # get_excit_connection's perm is <q+ p+ r s>
-                    r, s = conn[1] # conn is in ascending order in spinor index, 
-                    contrib = perm*np.conj(psi[i])*psi[j]
-                    _rdm[p, q, r, s] += contrib
-                    _rdm[p, q, s, r] -= contrib
-                    _rdm[q, p, r, s] -= contrib
-                    _rdm[q, p, s, r] += contrib
-        _t1 = time.time()
-        if (self.verbose): print(f'Time taken for 2-RDM build:  {(_t1-_t0):15.7f} s')
-        return _rdm
-    
-    def get_3_rdm(self, cas, psi):
-        """
-        gamma3^{pqr}_{stu} = <p+ q+ r+ u t s>
-        """
-        _t0 = time.time()
-        _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
-        for i in range(self.ncombs):
-            occ_vec = bstring_to_occ_vec(self.det_strings[i], *cas)
-            # get all possible triplets of occupied spinors
-            contrib = np.conj(psi[i])*psi[i]
-            for ip, p in enumerate(occ_vec):
-                for iq, q in enumerate(occ_vec[:ip]):
-                    for r in occ_vec[:iq]:
-                        _rdm[p, q, r, p, q, r] += contrib
-                        _rdm[q, r, p, p, q, r] += contrib
-                        _rdm[r, p, q, p, q, r] += contrib
-                        _rdm[p, r, q, p, q, r] -= contrib
-                        _rdm[r, q, p, p, q, r] -= contrib
-                        _rdm[q, p, r, p, q, r] -= contrib
-                        
-                        _rdm[p, q, r, q, r, p] += contrib
-                        _rdm[q, r, p, q, r, p] += contrib
-                        _rdm[r, p, q, q, r, p] += contrib
-                        _rdm[p, r, q, q, r, p] -= contrib
-                        _rdm[r, q, p, q, r, p] -= contrib
-                        _rdm[q, p, r, q, r, p] -= contrib
-                        
-                        _rdm[p, q, r, r, p, q] += contrib
-                        _rdm[q, r, p, r, p, q] += contrib
-                        _rdm[r, p, q, r, p, q] += contrib
-                        _rdm[p, r, q, r, p, q] -= contrib
-                        _rdm[r, q, p, r, p, q] -= contrib
-                        _rdm[q, p, r, r, p, q] -= contrib
-
-                        _rdm[p, q, r, p, r, q] -= contrib
-                        _rdm[q, r, p, p, r, q] -= contrib
-                        _rdm[r, p, q, p, r, q] -= contrib
-                        _rdm[p, r, q, p, r, q] += contrib
-                        _rdm[r, q, p, p, r, q] += contrib
-                        _rdm[q, p, r, p, r, q] += contrib
-                        
-                        _rdm[p, q, r, r, q, p] -= contrib
-                        _rdm[q, r, p, r, q, p] -= contrib
-                        _rdm[r, p, q, r, q, p] -= contrib
-                        _rdm[p, r, q, r, q, p] += contrib
-                        _rdm[r, q, p, r, q, p] += contrib
-                        _rdm[q, p, r, r, q, p] += contrib
-                        
-                        _rdm[p, q, r, q, p, r] -= contrib
-                        _rdm[q, r, p, q, p, r] -= contrib
-                        _rdm[r, p, q, q, p, r] -= contrib
-                        _rdm[p, r, q, q, p, r] += contrib
-                        _rdm[r, q, p, q, p, r] += contrib
-                        _rdm[q, p, r, q, p, r] += contrib
-            
-            for j in range(self.ncombs):
-                exlvl = get_excitation_level(self.det_strings[i], self.det_strings[j])
-                
-                if (exlvl==1):
-                    # We need to accumulate all <p+ q+ r+ r q s>, it's sufficient to get the parity of <p+ s> since q+r+ rq always cancel out
-                    [[p], [s]], perm = get_excit_connection(self.det_strings[i], self.det_strings[j], 1, *cas)
-                    f = annop(self.det_strings[i],p)[1]
-                    occ_vec = bstring_to_occ_vec(f, cas[0]-1, cas[1])
-                    contrib = perm*np.conj(psi[i])*psi[j]
-                    for iq, q in enumerate(occ_vec):
-                        # q cannot be == r as violates exclusion principle
-                        for r in occ_vec[:iq]:
-                            _rdm[p, q, r, s, q, r] += contrib
-                            _rdm[q, r, p, s, q, r] += contrib
-                            _rdm[r, p, q, s, q, r] += contrib
-                            _rdm[p, r, q, s, q, r] -= contrib
-                            _rdm[r, q, p, s, q, r] -= contrib
-                            _rdm[q, p, r, s, q, r] -= contrib
-
-                            _rdm[p, q, r, q, r, s] += contrib
-                            _rdm[q, r, p, q, r, s] += contrib
-                            _rdm[r, p, q, q, r, s] += contrib
-                            _rdm[p, r, q, q, r, s] -= contrib
-                            _rdm[r, q, p, q, r, s] -= contrib
-                            _rdm[q, p, r, q, r, s] -= contrib
-
-                            _rdm[p, q, r, r, s, q] += contrib
-                            _rdm[q, r, p, r, s, q] += contrib
-                            _rdm[r, p, q, r, s, q] += contrib
-                            _rdm[p, r, q, r, s, q] -= contrib
-                            _rdm[r, q, p, r, s, q] -= contrib
-                            _rdm[q, p, r, r, s, q] -= contrib
-
-                            _rdm[p, q, r, s, r, q] -= contrib
-                            _rdm[q, r, p, s, r, q] -= contrib
-                            _rdm[r, p, q, s, r, q] -= contrib
-                            _rdm[p, r, q, s, r, q] += contrib
-                            _rdm[r, q, p, s, r, q] += contrib
-                            _rdm[q, p, r, s, r, q] += contrib
-
-                            _rdm[p, q, r, r, q, s] -= contrib
-                            _rdm[q, r, p, r, q, s] -= contrib
-                            _rdm[r, p, q, r, q, s] -= contrib
-                            _rdm[p, r, q, r, q, s] += contrib
-                            _rdm[r, q, p, r, q, s] += contrib
-                            _rdm[q, p, r, r, q, s] += contrib
-
-                            _rdm[p, q, r, q, s, r] -= contrib
-                            _rdm[q, r, p, q, s, r] -= contrib
-                            _rdm[r, p, q, q, s, r] -= contrib
-                            _rdm[p, r, q, q, s, r] += contrib
-                            _rdm[r, q, p, q, s, r] += contrib
-                            _rdm[q, p, r, q, s, r] += contrib
-                if (exlvl==2):
-                    # We need to accumulate all <p+ q+ r+ r t s>
-                    conn, perm = get_excit_connection(self.det_strings[i], self.det_strings[j], 2, *cas)
-                    p, q = conn[0] # get_excit_connection's perm is <q+ p+ r s>
-                    s, t = conn[1] # conn is in ascending order in spinor index, 
-                    f = annop_mult(self.det_strings[i],conn[0])[1]
-                    occ_vec = bstring_to_occ_vec(f, cas[0]-2, cas[1])
-                    contrib = perm*np.conj(psi[i])*psi[j]
-                    for r in occ_vec:                       
-                        _rdm[p, q, r, s, t, r] += contrib
-                        _rdm[q, r, p, s, t, r] += contrib
-                        _rdm[r, p, q, s, t, r] += contrib
-                        _rdm[p, r, q, s, t, r] -= contrib
-                        _rdm[r, q, p, s, t, r] -= contrib
-                        _rdm[q, p, r, s, t, r] -= contrib
-
-                        _rdm[p, q, r, t, r, s] += contrib
-                        _rdm[q, r, p, t, r, s] += contrib
-                        _rdm[r, p, q, t, r, s] += contrib
-                        _rdm[p, r, q, t, r, s] -= contrib
-                        _rdm[r, q, p, t, r, s] -= contrib
-                        _rdm[q, p, r, t, r, s] -= contrib
-
-                        _rdm[p, q, r, r, s, t] += contrib
-                        _rdm[q, r, p, r, s, t] += contrib
-                        _rdm[r, p, q, r, s, t] += contrib
-                        _rdm[p, r, q, r, s, t] -= contrib
-                        _rdm[r, q, p, r, s, t] -= contrib
-                        _rdm[q, p, r, r, s, t] -= contrib
-
-                        _rdm[p, q, r, s, r, t] -= contrib
-                        _rdm[q, r, p, s, r, t] -= contrib
-                        _rdm[r, p, q, s, r, t] -= contrib
-                        _rdm[p, r, q, s, r, t] += contrib
-                        _rdm[r, q, p, s, r, t] += contrib
-                        _rdm[q, p, r, s, r, t] += contrib
-
-                        _rdm[p, q, r, r, t, s] -= contrib
-                        _rdm[q, r, p, r, t, s] -= contrib
-                        _rdm[r, p, q, r, t, s] -= contrib
-                        _rdm[p, r, q, r, t, s] += contrib
-                        _rdm[r, q, p, r, t, s] += contrib
-                        _rdm[q, p, r, r, t, s] += contrib
-
-                        _rdm[p, q, r, t, s, r] -= contrib
-                        _rdm[q, r, p, t, s, r] -= contrib
-                        _rdm[r, p, q, t, s, r] -= contrib
-                        _rdm[p, r, q, t, s, r] += contrib
-                        _rdm[r, q, p, t, s, r] += contrib
-                        _rdm[q, p, r, t, s, r] += contrib
-                if (exlvl==3):
-                    conn, perm = get_excit_connection(self.det_strings[i], self.det_strings[j], 3, *cas)
-                    p, q, r = conn[0]
-                    s, t, u = conn[1]
-                    
-                    contrib = perm*np.conj(psi[i])*psi[j]
-                    
-                    _rdm[p, q, r, s, t, u] += contrib
-                    _rdm[q, r, p, s, t, u] += contrib
-                    _rdm[r, p, q, s, t, u] += contrib
-                    _rdm[p, r, q, s, t, u] -= contrib
-                    _rdm[r, q, p, s, t, u] -= contrib
-                    _rdm[q, p, r, s, t, u] -= contrib
-
-                    _rdm[p, q, r, t, u, s] += contrib
-                    _rdm[q, r, p, t, u, s] += contrib
-                    _rdm[r, p, q, t, u, s] += contrib
-                    _rdm[p, r, q, t, u, s] -= contrib
-                    _rdm[r, q, p, t, u, s] -= contrib
-                    _rdm[q, p, r, t, u, s] -= contrib
-
-                    _rdm[p, q, r, u, s, t] += contrib
-                    _rdm[q, r, p, u, s, t] += contrib
-                    _rdm[r, p, q, u, s, t] += contrib
-                    _rdm[p, r, q, u, s, t] -= contrib
-                    _rdm[r, q, p, u, s, t] -= contrib
-                    _rdm[q, p, r, u, s, t] -= contrib
-
-                    _rdm[p, q, r, s, u, t] -= contrib
-                    _rdm[q, r, p, s, u, t] -= contrib
-                    _rdm[r, p, q, s, u, t] -= contrib
-                    _rdm[p, r, q, s, u, t] += contrib
-                    _rdm[r, q, p, s, u, t] += contrib
-                    _rdm[q, p, r, s, u, t] += contrib
-
-                    _rdm[p, q, r, u, t, s] -= contrib
-                    _rdm[q, r, p, u, t, s] -= contrib
-                    _rdm[r, p, q, u, t, s] -= contrib
-                    _rdm[p, r, q, u, t, s] += contrib
-                    _rdm[r, q, p, u, t, s] += contrib
-                    _rdm[q, p, r, u, t, s] += contrib
-
-                    _rdm[p, q, r, t, s, u] -= contrib
-                    _rdm[q, r, p, t, s, u] -= contrib
-                    _rdm[r, p, q, t, s, u] -= contrib
-                    _rdm[p, r, q, t, s, u] += contrib
-                    _rdm[r, q, p, t, s, u] += contrib
-                    _rdm[q, p, r, t, s, u] += contrib
-        _t1 = time.time()
-        if (self.verbose): print(f'Time taken for 3-RDM build:  {(_t1-_t0):15.7f} s')
-        return _rdm
-
     def form_denominators(self, s):
         fdiag = np.real(np.diagonal(self.fock))
         self.d1 = np.zeros((self.nhole,self.npart),dtype='float64')
@@ -1179,23 +1223,21 @@ class RelForte:
             self.relax_energies[irelax, 2] = self.e_casci
 
             if (_verbose): print('{:<30}{:<20}{:<10}'.format(f'<Psi^({irelax:d})|Hbar^({irelax:d})|Psi^({irelax:d})>',f'{self.e_dsrg_mrpt2.real+self.e_casci:.7f}',f'{self.relax_energies[irelax][0]-self.relax_energies[irelax-1][1]:.5e}'))
-            if (nrelax == 2 and irelax == 1): break
-            
-            self.dsrg_mrpt2_reference_relaxation(_eri)
 
+            if (nrelax == 2 and irelax == 1): break
+            self.dsrg_mrpt2_reference_relaxation(_eri)
             self.relax_energies[irelax, 1] = self.e_dsrg_mrpt2_relaxed
-            
             if (_verbose): print(f'   -Erelax{self.e_relax:.7f}       ')
             if (_verbose): print('{:<30}{:<20}{:<10}'.format(f'<Psi^({irelax:d})|Hbar^({irelax+1:d})|Psi^({irelax:d})>',f'{self.e_dsrg_mrpt2_relaxed:.7f}',f'{self.relax_energies[irelax][1]-self.relax_energies[irelax][0]:.5e}'))
             if (self.test_relaxation_convergence(irelax, relax_convergence)): break
             if (nrelax == 1): break
 
-            self.rdms_canon['1rdm'] = self.get_1_rdm(self.cas, self.dsrg_mrpt2_relax_eigvecs[:,0])
-            self.rdms_canon['2rdm'] = self.get_2_rdm(self.cas, self.dsrg_mrpt2_relax_eigvecs[:,0])
-            self.rdms_canon['3rdm'] = self.get_3_rdm(self.cas, self.dsrg_mrpt2_relax_eigvecs[:,0])
+            self.rdms_canon['1rdm'] = get_1_rdm(self.det_strings, self.cas, self.dsrg_mrpt2_relax_eigvecs[:,0], self.verbose)
+            self.rdms_canon['2rdm'] = get_2_rdm(self.det_strings, self.cas, self.dsrg_mrpt2_relax_eigvecs[:,0], self.verbose)
+            self.rdms_canon['3rdm'] = get_3_rdm(self.det_strings, self.cas, self.dsrg_mrpt2_relax_eigvecs[:,0], self.verbose)
 
-            _eri_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl',(self.semicanonicalizer),(self.semicanonicalizer),_eri,np.conj(self.semicanonicalizer),np.conj(self.semicanonicalizer),optimize='optimal')
-            _hcore_canon = np.einsum('ip,pq,jq->ij',(self.semicanonicalizer),_hcore,np.conj(self.semicanonicalizer),optimize='optimal')
+            _eri_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl',np.conjugate(self.semicanonicalizer),np.conjugate(self.semicanonicalizer),_eri,self.semicanonicalizer,self.semicanonicalizer,optimize='optimal')
+            _hcore_canon = np.einsum('ip,pq,jq->ij',np.conjugate(self.semicanonicalizer),_hcore,self.semicanonicalizer,optimize='optimal')
             del _eri, _hcore
 
             _gen_fock_canon = _hcore_canon.copy() + np.einsum('piqi->pq',_eri_canon[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri_canon[:,self.active,:,self.active],self.rdms_canon['1rdm'])
@@ -1592,3 +1634,161 @@ class RelForte:
             print(f'\nTiming report')
             print(f'....integral retrieval:      {(_t1-_t0):15.7f} s')
             print(f'....integral transformation: {(_t2-_t1):15.7f} s')
+
+# %%
+def enumerate_determinants(f0, nelec, norb, exlvl):
+    occ_vec = bstring_to_occ_vec(f0, nelec, norb)
+    unocc_vec = bstring_to_unocc_vec(f0, nelec, norb)
+
+    nunocc = norb - nelec
+    ndets = scipy.special.comb(nelec, exlvl, exact=True) * scipy.special.comb(nunocc, exlvl, exact=True)
+
+    occ_excited = list(itertools.combinations(occ_vec,nelec-exlvl))
+    unocc_excited = list(itertools.combinations(unocc_vec,exlvl))
+
+    excited_occ_vecs = [sum(_, ()) for _ in list(itertools.product(occ_excited, unocc_excited))]
+
+    det_strings = list(map(set_bit, excited_occ_vecs))
+
+    assert len(det_strings) == ndets
+
+    return det_strings
+
+def get_H_IP(fi, pspace, psi, H1body, H2body, cas):
+    """
+    Evaluates <Phi_I|H|Psi_P> = V*
+    """
+    vj = 0.j
+    for j, cj in enumerate(psi):
+        vj += cj*get_hamil_element(fi, pspace[j], H1body, H2body, cas)
+
+    return vj
+
+class ACISolver:
+    def __init__(self, sys, pspace0, verbose, cas, sigma, gamma, relativistic, maxiter=50, pt2=True):
+        self.p_space_det_strings = np.array(pspace0)
+        self.ndets = len(pspace0)
+        self.verbose = verbose
+        self.cas = cas
+        self.sys = sys # A RelForte object
+        self.iter = 1
+        self.sigma = sigma
+        self.gamma = gamma
+        self.maxiter = maxiter
+        self.pt2 = pt2
+        self.relativistic = relativistic
+        
+        if (relativistic):
+            self.H1body = self.sys.dhf_hcore_mo
+            self.H2body = self.sys.dhf_eri_full_asym
+        else:
+            self.H1body = self.sys.rhf_hcore_spinorb
+            self.H2body = self.sys.rhf_eri_full_asym
+        
+        self.ncas_elec, self.ncas_orbs = cas
+        self.ncoreel = self.sys.nelec-self.ncas_elec
+
+        self.ncore = self.ncoreel
+        self.nact = self.ncas_orbs
+        self.nvirt = self.sys.nlrg-(self.ncore+self.nact) # This is different from nvirtual, which is in the single-reference sense (nvirt in the HF reference)
+        self.nhole = self.ncore+self.nact
+        self.npart = self.nact+self.nvirt
+        
+        self.core = slice(0,self.ncore)
+        self.active = slice(self.ncore, self.ncore+self.ncas_orbs)
+        self.virt = slice(self.ncore+self.ncas_orbs, self.sys.nlrg)
+        self.hole = slice(0,self.ncore+self.ncas_orbs)
+        self.part = slice(self.ncore, self.sys.nlrg)
+        
+        self.hc = self.core
+        self.ha = self.active
+        self.pa = slice(0,self.nact)
+        self.pv = slice(self.nact,self.nact+self.nvirt)
+
+        self.hh = self.hole
+        self.pp = slice(0,self.npart)
+
+        self.e_casci_frzc = 0.0
+
+        if (self.ncore != 0):
+            self.e_casci_frzc = np.einsum('ii->',self.H1body[self.core,self.core]) + 0.5*np.einsum('ijij->',self.H2body[self.core,self.core,self.core,self.core])
+            self.H1body = self.H1body[self.active, self.active].copy() + np.einsum('ipjp->ij',self.H2body[self.active,self.core,self.active,self.core])
+            self.H2body = self.H2body[self.active, self.active, self.active, self.active]
+
+        self.nuclear_repulsion = self.sys.nuclear_repulsion + self.e_casci_frzc.real
+        
+    def diagonalize_p_space(self):
+        self.p_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.p_space_det_strings, self.verbose, self.cas)
+        self.p_space_eigvals, self.p_space_eigvecs = np.linalg.eigh(self.p_hamil)
+        self.p_space_energy = self.p_space_eigvals[0].real + self.nuclear_repulsion
+        self.rdm1 = get_1_rdm(self.p_space_det_strings, self.cas, self.p_space_eigvecs[:,0], self.verbose)
+    
+    def generate_fois(self):
+        self.fois = set()
+        for ipdet in self.p_space_det_strings:
+            self.fois |= set(enumerate_determinants(ipdet, *self.cas, 1))
+            self.fois |= set(enumerate_determinants(ipdet, *self.cas, 2))
+        
+        self.fois = np.array(list(self.fois - set(self.p_space_det_strings))) # [todo]: should we sort this list? set gives unpredictable ordering.
+    
+    def get_energy_criteria(self):
+        self.e_impt = np.zeros(len(self.fois))
+        for i, fi in enumerate(self.fois):
+            e_i = get_hamil_element(fi, fi, self.H1body, self.H2body, self.cas).real + self.nuclear_repulsion
+            delta = e_i - self.p_space_energy
+            vconj = get_H_IP(fi, self.p_space_det_strings, self.p_space_eigvecs[:,0], self.H1body, self.H2body, self.cas)
+            self.e_impt[i] = delta/2 - np.sqrt(delta**2/4 + (vconj*np.conjugate(vconj)).real)
+    
+    def get_model_space(self):
+        _e_f_argsort = np.argsort(np.abs(self.e_impt)) # numpy sorts in increasing order (smallest first), which is what we want here
+        _esum = .0
+        for i in range(len(self.fois)):
+            _esum += np.abs(self.e_impt[_e_f_argsort[i]])
+            if (_esum >= self.sigma): break 
+
+        if (i < len(self.fois) and self.pt2): self.e_pt2 = np.sum(self.e_impt[_e_f_argsort[:i]]) # we don't want to discard the last determinant
+
+        self.m_space_det_strings = np.array(list(set(self.p_space_det_strings) | set(self.fois[_e_f_argsort[i:]])))
+
+    def diagonalize_model_space(self):
+        self.m_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.m_space_det_strings, self.verbose, self.cas)
+        self.m_space_eigvals, self.m_space_eigvecs = np.linalg.eigh(self.m_hamil)
+        self.m_space_energy = self.m_space_eigvals[0].real + self.nuclear_repulsion
+
+    def coarse_grain_m_space(self):
+        _ci = np.real(np.conj(self.m_space_eigvecs[:,0]) * self.m_space_eigvecs[:,0])
+        _ci_argsort = np.argsort(_ci)[::-1] # numpy sorts in increasing order, we want decreasing
+        _cisum = .0
+        for i in range(len(_ci)):
+            _cisum += _ci[_ci_argsort[i]]
+            if (_cisum >= (1 - self.gamma*self.sigma)): break
+
+        self.p_space_det_strings = self.m_space_det_strings[_ci_argsort[:i+1]]
+        self.ndets = i+1
+
+    def run_aci(self):
+        for iter in range(self.maxiter):
+            _t0 = time.time()
+            
+            self.iter = iter + 1
+            print(f'Iteration {self.iter}')
+
+            print(f'number of p space determinants: {self.ndets}')
+            self.diagonalize_p_space()
+            print(f'p space energy: {self.p_space_energy}')
+
+            self.generate_fois()
+            print(f'number of fois determinants: {len(self.fois)}')
+
+            self.get_energy_criteria()
+
+            self.get_model_space()
+            print(f'number of model space determinants: {len(self.m_space_det_strings)}')
+            if (self.pt2): print(f'pt2 energy: {self.e_pt2}')
+            
+            self.diagonalize_model_space()
+            print(f'model space energy: {self.m_space_energy}')
+            if (self.pt2): print(f'pt2-corrected model space energy: {self.m_space_energy + self.e_pt2}\n')
+            
+            self.coarse_grain_m_space()
+            _t1 = time.time()
