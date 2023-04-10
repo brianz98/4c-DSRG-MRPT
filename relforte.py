@@ -91,7 +91,7 @@ def Hbar_active_twobody_wicked(mf, F, V, T1, T2, gamma1, eta1):
     _V += +1.000 * np.einsum("ivuy,iwxz,yz->vxuw", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],eta1,optimize="optimal")
     _V += +1.000 * np.einsum("vyua,wzxa,zy->vxuw", T2[ha,ha, pa,pv], V[ha,ha, pa,pv],gamma1,optimize="optimal")
     
-    return antisymmetrize_2(_V, 'aaaa')
+    return antisymmetrize_2(_V.conj(), 'aaaa')
 
 def Hbar_active_onebody_wicked(mf, F, V, T1, T2, gamma1, eta1, lambda2):
     hc = mf.hc
@@ -129,7 +129,7 @@ def Hbar_active_onebody_wicked(mf, F, V, T1, T2, gamma1, eta1, lambda2):
     _F += +0.500 * np.einsum("iuab,ivab->uv", T2[hc,ha, pv,pv], V[hc,ha, pv,pv],optimize="optimal")
     _F += +0.500 * np.einsum("uwab,vxab,xw->uv", T2[ha,ha, pv,pv], V[ha,ha, pv,pv],gamma1,optimize="optimal")
 
-    return _F
+    return _F.conj()
 
 def Hbar_active_twobody(mf, F, V, T1, T2, gamma1, eta1):
     hc = mf.hc
@@ -276,6 +276,12 @@ def clear_bit(f, bit_loc):
     """
     return f & ~(1<<bit_loc)
 
+def test_bit(f, bit_loc):
+    """
+    Test if bit_loc in f is set. Returns 1 if set, 0 if not set.
+    """
+    return (f & (1<<bit_loc)) >> bit_loc
+
 def count_set_bits(f):
     """
     Return the number of set (1) bits in the bit string f.
@@ -288,26 +294,20 @@ def get_excitation_level(f1, f2):
     """
     return int(count_set_bits(f1^f2)/2)
 
-def test_bit(f, bit_loc):
-    """
-    Test if bit_loc in f is set. Returns 1 if set, 0 if not set.
-    """
-    return (f & (1<<bit_loc)) >> bit_loc
-
 def annop(bit_string, ispinor):
-        """
-        Annihilation operator, annihilates spinorb in bit_string, returns the sign and the resulting bit string.
-        If spinorb is already empty, sign is zero and the bit string is returned unchanged.
-        """
-        if (not test_bit(bit_string, ispinor)):
-            sgn = 0
-        else:
-            test_string = 0
-            for i in range(ispinor):
-                test_string = set_bit_single(test_string, i)
-            sgn = (-1)**(count_set_bits(bit_string & test_string))
-            bit_string = clear_bit(bit_string, ispinor)
-        return (sgn, bit_string)
+    """
+    Annihilation operator, annihilates spinorb in bit_string, returns the sign and the resulting bit string.
+    If spinorb is already empty, sign is zero and the bit string is returned unchanged.
+    """
+    if (not test_bit(bit_string, ispinor)):
+        sgn = 0
+    else:
+        test_string = 0
+        for i in range(ispinor):
+            test_string = set_bit_single(test_string, i)
+        sgn = (-1)**(count_set_bits(bit_string & test_string))
+        bit_string = clear_bit(bit_string, ispinor)
+    return (sgn, bit_string)
     
 def bstring_to_occ_vec(f, nelec, norbs):
     occ_vec = np.zeros(nelec, dtype='int')
@@ -419,8 +419,8 @@ def sph_to_spinor(mol, coeffs):
     # This means to rotate this linear combination of real spherical p spinors to p_{1/2,-1/2} 
     # (i.e., [-1, 0, 0, 0, 0, 0] in the complex representation),
     # we need to dot it with [1, 0, i, 0, 0, -1], which suggests that we need to take the complex conjugate of the rotmat.
-    mo_rot[:nspinor,:] = np.einsum('uv,ui->vi', np.conjugate(rotmat), coeffs[:nspinor,:])
-    mo_rot[nspinor:,:] = np.einsum('uv,ui->vi', np.conjugate(rotmat), coeffs[nspinor:,:])
+    mo_rot[:nspinor,:] = np.einsum('uv,ui->vi', np.conj(rotmat), coeffs[:nspinor,:])
+    mo_rot[nspinor:,:] = np.einsum('uv,ui->vi', np.conj(rotmat), coeffs[nspinor:,:])
     
     return mo_rot, rotmat
 
@@ -451,11 +451,11 @@ def form_cas_hamiltonian(H1body, H2body, det_strings, verbose, cas, ncore=0):
                         _hamil_det[i,j] += H2body[conn[0]+ncore, iocc+ncore, conn[1]+ncore, iocc+ncore]
 
                     _hamil_det[i,j] *= perm
-                    _hamil_det[j,i] = np.conjugate(_hamil_det[i,j])
+                    _hamil_det[j,i] = np.conj(_hamil_det[i,j])
                 elif (exlvl == 2):
                     conn, perm = get_excit_connection(det_strings[i], det_strings[j], exlvl, *cas)
                     _hamil_det[i,j] = perm*H2body[conn[0][0]+ncore, conn[0][1]+ncore, conn[1][0]+ncore, conn[1][1]+ncore]
-                    _hamil_det[j,i] = np.conjugate(_hamil_det[i,j])         
+                    _hamil_det[j,i] = np.conj(_hamil_det[i,j])         
     return _hamil_det
 
 def get_hamil_element(f0, f1, H1body, H2body, cas, ncore=0):
@@ -485,7 +485,7 @@ def get_hamil_element(f0, f1, H1body, H2body, cas, ncore=0):
     
     return _hmatel
 
-def form_cas_determinant_strings(norbs, nelec):
+def form_cas_determinant_strings(nelec, norbs):
     """
     Returns the unrestricted (no spin or spatial symmetry imposed) list of bitstrings in a (nelec, n(spin(or))orbs) CAS.
     """
@@ -494,6 +494,39 @@ def form_cas_determinant_strings(norbs, nelec):
     assert(len(det_strings) == ncombs)
 
     return ncombs, det_strings
+
+def form_cas_determinant_strings_general(occlist, actlist, nelec):
+    """
+    Returns the unrestricted (no spin or spatial symmetry imposed) list of bitstrings in the active space generated by distributing nelec in the occlist.
+    """
+    # just in case..
+    actlist = list(np.sort(actlist)) 
+    occlist = list(np.sort(occlist)) 
+    norbs = len(actlist)
+    
+    ncombs = scipy.special.comb(norbs, nelec, exact=True)
+    det_strings = list(map(set_bit, [list(_) + occlist for _ in list(itertools.combinations(actlist,nelec))] ))
+    assert(len(det_strings) == ncombs)
+
+    return ncombs, det_strings
+
+def get_1_rdm_sa(det_strings, cas, states, weights, verbose):
+    _sa_rdm = np.zeros((cas[1],cas[1]), dtype='complex128')
+    for i in range(len(weights)):
+        _sa_rdm += weights[i] * get_1_rdm(det_strings, cas, states[i], verbose)
+    return _sa_rdm
+
+def get_2_rdm_sa(det_strings, cas, states, weights, verbose):
+    _sa_rdm = np.zeros((cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+    for i in range(len(weights)):
+        _sa_rdm += weights[i] * get_2_rdm(det_strings, cas, states[i], verbose)
+    return _sa_rdm
+
+def get_3_rdm_sa(det_strings, cas, states, weights, verbose):
+    _sa_rdm = np.zeros((cas[1],cas[1],cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+    for i in range(len(weights)):
+        _sa_rdm += weights[i] * get_3_rdm(det_strings, cas, states[i], verbose)
+    return _sa_rdm
 
 def get_1_rdm(det_strings, cas, psi, verbose):
     _t0 = time.time()
@@ -514,6 +547,7 @@ def get_1_rdm(det_strings, cas, psi, verbose):
 def get_2_rdm(det_strings, cas, psi, verbose):
     _t0 = time.time()
     _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+    if (cas[0] < 2): return _rdm
     for i in range(len(det_strings)):
         # <p+ q+ q p>
         occ_vec = bstring_to_occ_vec(det_strings[i], *cas)
@@ -560,6 +594,7 @@ def get_3_rdm(det_strings, cas, psi, verbose):
     """
     _t0 = time.time()
     _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+    if (cas[0] < 3): return _rdm
     for i in range(len(det_strings)):
         occ_vec = bstring_to_occ_vec(det_strings[i], *cas)
         # get all possible triplets of occupied spinors
@@ -764,6 +799,48 @@ def get_3_rdm(det_strings, cas, psi, verbose):
     if (verbose): print(f'Time taken for 3-RDM build:  {(_t1-_t0):15.7f} s')
     return _rdm
 
+def enumerate_determinants(f0, nelec, norb, exlvl):
+    occ_vec = bstring_to_occ_vec(f0, nelec, norb)
+    unocc_vec = bstring_to_unocc_vec(f0, nelec, norb)
+
+    nunocc = norb - nelec
+    ndets = scipy.special.comb(nelec, exlvl, exact=True) * scipy.special.comb(nunocc, exlvl, exact=True)
+
+    occ_excited = list(itertools.combinations(occ_vec,nelec-exlvl))
+    unocc_excited = list(itertools.combinations(unocc_vec,exlvl))
+
+    excited_occ_vecs = [sum(_, ()) for _ in list(itertools.product(occ_excited, unocc_excited))]
+
+    det_strings = list(map(set_bit, excited_occ_vecs))
+
+    assert len(det_strings) == ndets
+
+    return det_strings
+
+def get_H_IP(fi, pspace, psi, H1body, H2body, cas):
+    """
+    Evaluates <Phi_I|H|Psi_P> = V*
+    """
+    vj = 0.j
+    for j, cj in enumerate(psi):
+        vj += cj*get_hamil_element(fi, pspace[j], H1body, H2body, cas)
+
+    return vj
+
+def annihilate_state(psi, orb, basis):
+    ann_psi = np.zeros_like(psi)
+    ann_basis = np.zeros(len(basis), dtype='int')
+    iann = 0
+    for i in range(len(psi)):
+        _ann_i = annop(basis[i], orb)
+        if (_ann_i[0] != 0):
+            ann_psi[iann] = _ann_i[0] * psi[i]
+            ann_basis[iann] = _ann_i[1]
+            iann += 1
+    ann_psi = ann_psi[:iann]
+    ann_basis = ann_basis[:iann]
+    argsort = np.argsort(ann_basis)
+    return ann_psi[argsort], ann_basis[argsort]
 
 class RelForte:
     def __init__(self, mol, c0=None, verbose=True, density_fitting=False, decontract=False):
@@ -844,9 +921,9 @@ class RelForte:
         # Run relativistic Dirac-Hartree-Fock
         if (self.density_fitting):
             if (self.verbose): print('{:#^47}'.format('Enabling density fitting!')) 
-            self.dhf = pyscf.scf.dhf.UDHF(self.mol).density_fit()
+            self.dhf = pyscf.scf.DHF(self.mol).density_fit()
         else:
-            self.dhf = pyscf.scf.dhf.UDHF(self.mol)
+            self.dhf = pyscf.scf.DHF(self.mol)
 
         self.dhf.with_gaunt = with_gaunt
         self.dhf.with_breit = with_breit
@@ -939,62 +1016,112 @@ class RelForte:
             if (not relativistic): print(f'Error to PySCF:              {(self.e_mp2-_e_mp2):15.7f} Eh')
             print(f'Time taken:                  {(_t1-_t0):15.7f} s')
             print('='*47)
+    
+    def run_casscf_pyscf(self, cas, transform=False, frozen=None):
+        _ti = time.time()
+        if (self.verbose):
+            print('='*47)
+            print('{:^47}'.format('PySCF CASSCF interface'))
+            print('='*47)
         
-    def run_casci(self, cas=None, do_fci=False, rdm_level=0, relativistic=True, semi_canonicalize=True, mo_read_in=None):
+        casscf = pyscf.mcscf.CASSCF(self.rhf, int(cas[1]//2), cas[0])
+        res = casscf.kernel()
+        self.e_casscf = res[0]
+
+        if (transform):
+            self.nonrel_ao2mo(res[3], frozen=None)
+
+            if (self.verbose):
+                _tf = time.time()
+                print(f'CASSCF time:                 {_tf-_ti:15.7f} s')
+                print('='*47)
+    
+    def run_casci(self, cas=None, do_fci=False, rdm_level=0, relativistic=True, semi_canonicalize=True, state_avg=None, sa_weights=None):
+        _t0 = time.time()
+        
         try:
             assert ((cas is None) and do_fci) or ((cas is not None) and (not do_fci))
         except AssertionError:
             raise Exception("If not doing FCI then a CAS must be provided via the 'cas' argument!")
-            
-        if cas is not None:
-            try:
-                assert type(cas) is tuple
-            except AssertionError:
-                raise Exception("'cas' must be a tuple of two integers!")
-                
-            try:
-                assert int(cas[0]) <= int(cas[1])
-            except AssertionError:
-                raise Exception("Number of CAS electrons must be <= number of CAS spinors!")
 
-        _t0 = time.time()
+        if (state_avg is not None):
+            try:
+                assert (type(state_avg) is list)
+            except AssertionError:
+                raise Exception("state_avg must be a list of CASCI states to average over!")
+            
+            try:
+                assert (type(sa_weights) is list and len(sa_weights) == len(state_avg))
+            except AssertionError:
+                raise Exception("sa_weights must be a list of the same length as state_avg!")
+
+            try:
+                assert (np.isclose(sum(sa_weights), 1.0))
+            except AssertionError:
+                raise Exception("sa_weights doesn't add up to 1.0!")
+        else:
+            state_avg = [0]
+            sa_weights = [1.0]
+
+        self.state_avg = state_avg
+        self.sa_weights = sa_weights
         
+        if (do_fci):
+            cas = (self.nelec, self.nlrg)
+
+        self.cas = cas
+
+        if (type(cas) is tuple):
+            if (type(cas[0]) is int):
+                # Using a CAS
+                try:
+                    assert int(cas[0]) <= int(cas[1])
+                except AssertionError:
+                    raise Exception("Number of CAS electrons must be <= number of CAS spinors!")
+                
+                self.ncore = self.nelec - self.cas[0]
+                self.nact = self.cas[1]
+                self.nvirt = self.nlrg-(self.ncore+self.nact) # This is different from nvirtual, which is in the single-reference sense (nvirt in the HF reference)
+                self.nhole = self.ncore+self.nact
+                self.npart = self.nact+self.nvirt
+
+                self.core = slice(0,self.ncore)
+                self.active = slice(self.ncore, self.ncore+self.nact)
+                self.virt = slice(self.ncore+self.nact, self.nlrg)
+                self.hole = slice(0,self.ncore+self.nact)
+                self.part = slice(self.ncore, self.nlrg)
+            elif (type(cas[0]) is list):
+                # Using a GAS: cas = (occ_orbs, active_orbs)
+                try:
+                    assert len(cas[1]) + len(cas[2]) > self.nelec
+                except AssertionError:
+                    raise Exception("Number of frozen + active spinorbitals <= number of electrons!")
+
+                self.ncore = len(self.cas[0])
+                self.nact = len(self.cas[1])
+                self.nvirt = self.nlrg-(self.ncore+self.nact) # This is different from nvirtual, which is in the single-reference sense (nvirt in the HF reference)
+                self.nhole = self.ncore+self.nact
+                self.npart = self.nact+self.nvirt
+
+                self.core = self.cas[0]
+                self.active = self.cas[1]
+                self.virt = list(np.sort(list(set(list(range(self.nlrg))) - set(self.core) - set(self.active))))
+                self.hole = list(np.sort(self.core + self.active))
+                self.part = list(np.sort(self.active + self.virt))
+                
+            self.hc = self.core
+            self.ha = self.active
+            self.pa = slice(0,self.nact)
+            self.pv = slice(self.nact,self.nact+self.nvirt)
+
+            self.hh = self.hole
+            self.pp = slice(0,self.npart)
+        else:
+            raise Exception("'cas' must be a tuple of two integers or orbital lists!")
+                
         self.semi_can = semi_canonicalize
         
-        if do_fci:
-            _norbs = self.nlrg
-            _nelec = self.nelec
-            _ncoreel = 0
-        else:
-            _nelec, _norbs = cas
-            _ncoreel = self.nelec-_nelec
-            
-        self.cas = (_nelec,_norbs)
-        
-        self.ncore = _ncoreel
-        self.nact = _norbs
-        self.nvirt = self.nlrg-(self.ncore+self.nact) # This is different from nvirtual, which is in the single-reference sense (nvirt in the HF reference)
-        self.nhole = self.ncore+self.nact
-        self.npart = self.nact+self.nvirt
-        
-        self.core = slice(0,_ncoreel)
-        self.active = slice(_ncoreel, _ncoreel+_norbs)
-        self.virt = slice(_ncoreel+_norbs, self.nlrg)
-        self.hole = slice(0,_ncoreel+_norbs)
-        self.part = slice(_ncoreel, self.nlrg)
-        
-        self.hc = self.core
-        self.ha = self.active
-        self.pa = slice(0,self.nact)
-        self.pv = slice(self.nact,self.nact+self.nvirt)
-
-        self.hh = self.hole
-        self.pp = slice(0,self.npart)
-
         self.e_casci_frzc = 0.0
-
-        if (mo_read_in is not None):
-            self.mo_coeff_read_in = np.load(mo_read_in)
             
         if (relativistic):
             _hcore = self.dhf_hcore_mo
@@ -1020,7 +1147,7 @@ class RelForte:
         else:
             _hcore_cas = _hcore
             
-        self.ncombs, self.det_strings = form_cas_determinant_strings(_norbs, _nelec)
+        self.ncombs, self.det_strings = form_cas_determinant_strings(*self.cas)
         _hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, ncore=self.ncore)
 
         _t1 = time.time()
@@ -1036,8 +1163,8 @@ class RelForte:
                 
             _rdms = {'max_rdm_level':rdm_level}
             if (rdm_level>=1):
-                _psi = self.casci_eigvecs[:,0]
-                _rdms['1rdm'] = get_1_rdm(self.det_strings, self.cas, _psi, self.verbose)
+                _psi = [self.casci_eigvecs[:,i] for i in self.state_avg]
+                _rdms['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
                 _gen_fock_canon = _hcore.copy() + np.einsum('piqi->pq',_eri[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri[:,self.active,:,self.active],_rdms['1rdm'])
                 self.fock = _gen_fock_canon
                 if (semi_canonicalize):
@@ -1053,13 +1180,13 @@ class RelForte:
                     self.semicanonicalizer = np.diag((np.zeros(self.fock.shape[0],dtype='complex128')+1.0))
                     self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
             if (rdm_level>=2):
-                if (_nelec>=2):
-                    _rdms['2rdm'] = get_2_rdm(self.det_strings, self.cas, _psi, self.verbose)
+                if (self.cas[0]>=2):
+                    _rdms['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
                 else:
                     _rdms['2rdm'] = np.zeros((self.cas[1],self.cas[1],self.cas[1],self.cas[1]), dtype='complex128')
             if (rdm_level>=3):
-                if (_nelec>=3):
-                    _rdms['3rdm'] = get_3_rdm(self.det_strings, self.cas, _psi, self.verbose)
+                if (self.cas[0]>=3):
+                    _rdms['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
                 else:
                     _rdms['3rdm'] = np.zeros((self.cas[1],self.cas[1],self.cas[1],self.cas[1],self.cas[1],self.cas[1]), dtype='complex128')
 
@@ -1075,14 +1202,16 @@ class RelForte:
                 _eri = np.einsum('ip,jq,ijkl,kr,ls->pqrs',np.conj(self.semicanonicalizer),np.conj(self.semicanonicalizer),_eri,self.semicanonicalizer,self.semicanonicalizer,optimize='optimal')
         _t3 = time.time()
         
+        _sa_casci_eigvals = np.dot(self.casci_eigvals[self.state_avg], self.sa_weights)
+
         if (not do_fci):
             if (self.verbose): print(f'E_frzc:                      {self.e_casci_frzc.real:15.7f} Eh')
             if (self.verbose): print(f'E_cas:                       {self.casci_eigvals[0]:15.7f} Eh')
             if (self.verbose): print(f'E_nuc:                       {self.nuclear_repulsion:15.7f} Eh')
-            self.e_casci = self.e_casci_frzc.real+self.casci_eigvals[0].real+self.nuclear_repulsion
+            self.e_casci = self.e_casci_frzc.real+_sa_casci_eigvals.real+self.nuclear_repulsion
             if (self.verbose): print(f'E_casci:                     {self.e_casci:15.7f} Eh')
         else:
-            self.e_casci = self.casci_eigvals[0].real+self.nuclear_repulsion
+            self.e_casci = _sa_casci_eigvals.real+self.nuclear_repulsion
             if (self.verbose): print(f'E_casci:                     {self.e_casci:15.7f} Eh')
 
         try:
@@ -1119,9 +1248,7 @@ class RelForte:
             print('Timing summary')
             print(f'... Hamil build:              {(_t1-_t0):15.7f} s')
             print(f'... Hamil diag:               {(_t2-_t1):15.7f} s')
-            
-        
-        # I don't know how """pointers""" work in Python anymore so just to be safe...
+
         if (relativistic):
             self.dhf_hcore_mo = _hcore
             self.dhf_eri_full_asym = _eri
@@ -1136,7 +1263,7 @@ class RelForte:
         if (self.verbose):
             print(f'Total time taken:             {(_t4-_t0):15.7f} s')
             print('='*47)
-    
+
     def form_denominators(self, s):
         fdiag = np.real(np.diagonal(self.fock))
         self.d1 = np.zeros((self.nhole,self.npart),dtype='float64')
@@ -1232,9 +1359,10 @@ class RelForte:
             if (self.test_relaxation_convergence(irelax, relax_convergence)): break
             if (nrelax == 1): break
 
-            self.rdms_canon['1rdm'] = get_1_rdm(self.det_strings, self.cas, self.dsrg_mrpt2_relax_eigvecs[:,0], self.verbose)
-            self.rdms_canon['2rdm'] = get_2_rdm(self.det_strings, self.cas, self.dsrg_mrpt2_relax_eigvecs[:,0], self.verbose)
-            self.rdms_canon['3rdm'] = get_3_rdm(self.det_strings, self.cas, self.dsrg_mrpt2_relax_eigvecs[:,0], self.verbose)
+            _psi = [self.dsrg_mrpt2_relax_eigvecs[:,i] for i in self.state_avg]
+            self.rdms_canon['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+            self.rdms_canon['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+            self.rdms_canon['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
 
             _eri_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl',np.conjugate(self.semicanonicalizer),np.conjugate(self.semicanonicalizer),_eri,self.semicanonicalizer,self.semicanonicalizer,optimize='optimal')
             _hcore_canon = np.einsum('ip,pq,jq->ij',np.conjugate(self.semicanonicalizer),_hcore,self.semicanonicalizer,optimize='optimal')
@@ -1345,7 +1473,7 @@ class RelForte:
         # This conjugation is subtle: self.fock[i,a] accesses <i|f|a>, so np.conj(self.fock[i,a]) = <a|f|i> = f_a^i
         # Now F_1_tilde_a^i = f_a^i + ..., so the three lines above calculates F_1_tilde_a^i = <a|ftilde|i>, 
         # but we want to store <i|ftilde|a>, so we take the complex conjugate.
-        self.F_1_tilde = np.conj(self.F_1_tilde) 
+        self.F_1_tilde = np.conj(self.F_1_tilde)
 
         self.V_1_tilde = _eri[self.hole,self.hole,self.part,self.part].copy()
         self.V_1_tilde += self.V_1_tilde * self.d2_exp
@@ -1358,23 +1486,21 @@ class RelForte:
     def dsrg_mrpt2_reference_relaxation(self, _eri):
         _hbar2 = _eri[self.active,self.active,self.active,self.active].copy()
         _C2 = 0.5*Hbar_active_twobody_wicked(self, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, self.cumulants['gamma1'], self.cumulants['eta1'])
-        _hbar2 += _C2
         # 0.5*[H, T-T+] = 0.5*([H, T] + [H, T]+)
-        _hbar2 += np.einsum('ijab->abij',np.conj(_C2))
+        _hbar2 += _C2 + np.einsum('ijab->abij',np.conj(_C2)) 
 
         _hbar1 = self.fock[self.active,self.active].copy()
         _C1 = 0.5*Hbar_active_onebody_wicked(self, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'])
         # 0.5*[H, T-T+] = 0.5*([H, T] + [H, T]+)
-        _hbar1 += _C1
-        _hbar1 += np.conj(_C1.T)
+        _hbar1 += _C1 + np.einsum('ia->ai',np.conj(_C1))
 
         _e_scalar = -np.einsum('uv,uv->', _hbar1, self.cumulants['gamma1']) - 0.25*np.einsum('uvxy,uvxy->',_hbar2,self.rdms['2rdm']) + np.einsum('uvxy,ux,vy->',_hbar2,self.cumulants['gamma1'],self.cumulants['gamma1'])
 
         _hbar1 -= np.einsum('uxvy,xy->uv',_hbar2,self.cumulants['gamma1'])
 
         if (self.semi_can):
-            _hbar1_canon = np.einsum('ip,pq,jq->ij', (self.semicanonicalizer_active), _hbar1, np.conj(self.semicanonicalizer_active), optimize='optimal')
-            _hbar2_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl', (self.semicanonicalizer_active), (self.semicanonicalizer_active), _hbar2, np.conj(self.semicanonicalizer_active),np.conj(self.semicanonicalizer_active), optimize='optimal')
+            _hbar1_canon = np.einsum('ip,pq,jq->ij', np.conj(self.semicanonicalizer_active), _hbar1, (self.semicanonicalizer_active), optimize='optimal')
+            _hbar2_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl', np.conj(self.semicanonicalizer_active), np.conj(self.semicanonicalizer_active), _hbar2, (self.semicanonicalizer_active),(self.semicanonicalizer_active), optimize='optimal')
         else:
             _hbar1_canon = _hbar1
             _hbar2_canon = _hbar2
@@ -1382,7 +1508,7 @@ class RelForte:
         _ref_relax_hamil = form_cas_hamiltonian(_hbar1_canon, _hbar2_canon, self.det_strings, self.verbose, self.cas)
         self.dsrg_mrpt2_relax_eigvals, self.dsrg_mrpt2_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
 
-        self.e_relax = (self.dsrg_mrpt2_relax_eigvals[0] + _e_scalar)
+        self.e_relax = (np.dot(self.dsrg_mrpt2_relax_eigvals[self.state_avg], self.sa_weights) + _e_scalar)
         try:
             assert(abs(self.e_relax.imag) < MACHEPS)
         except AssertionError:
@@ -1635,36 +1761,8 @@ class RelForte:
             print(f'....integral retrieval:      {(_t1-_t0):15.7f} s')
             print(f'....integral transformation: {(_t2-_t1):15.7f} s')
 
-def enumerate_determinants(f0, nelec, norb, exlvl):
-    occ_vec = bstring_to_occ_vec(f0, nelec, norb)
-    unocc_vec = bstring_to_unocc_vec(f0, nelec, norb)
-
-    nunocc = norb - nelec
-    ndets = scipy.special.comb(nelec, exlvl, exact=True) * scipy.special.comb(nunocc, exlvl, exact=True)
-
-    occ_excited = list(itertools.combinations(occ_vec,nelec-exlvl))
-    unocc_excited = list(itertools.combinations(unocc_vec,exlvl))
-
-    excited_occ_vecs = [sum(_, ()) for _ in list(itertools.product(occ_excited, unocc_excited))]
-
-    det_strings = list(map(set_bit, excited_occ_vecs))
-
-    assert len(det_strings) == ndets
-
-    return det_strings
-
-def get_H_IP(fi, pspace, psi, H1body, H2body, cas):
-    """
-    Evaluates <Phi_I|H|Psi_P> = V*
-    """
-    vj = 0.j
-    for j, cj in enumerate(psi):
-        vj += cj*get_hamil_element(fi, pspace[j], H1body, H2body, cas)
-
-    return vj
-
 class ACISolver:
-    def __init__(self, sys, pspace0, verbose, cas, sigma, gamma, relativistic, maxiter=50, pt2=True):
+    def __init__(self, sys, pspace0, verbose, cas, sigma, gamma, relativistic, maxiter=50, pt2=True, etol=1e-8):
         self.p_space_det_strings = np.array(pspace0)
         self.ndets = len(pspace0)
         self.verbose = verbose
@@ -1676,6 +1774,7 @@ class ACISolver:
         self.maxiter = maxiter
         self.pt2 = pt2
         self.relativistic = relativistic
+        self.etol = etol
         
         if (relativistic):
             self.H1body = self.sys.dhf_hcore_mo
@@ -1728,7 +1827,7 @@ class ACISolver:
             self.fois |= set(enumerate_determinants(ipdet, *self.cas, 1))
             self.fois |= set(enumerate_determinants(ipdet, *self.cas, 2))
         
-        self.fois = np.array(list(self.fois - set(self.p_space_det_strings))) # [todo]: should we sort this list? set gives unpredictable ordering.
+        self.fois = np.array(list(self.fois - set(self.p_space_det_strings)))
     
     def get_energy_criteria(self):
         self.e_impt = np.zeros(len(self.fois))
@@ -1765,7 +1864,53 @@ class ACISolver:
         self.p_space_det_strings = self.m_space_det_strings[_ci_argsort[:i+1]]
         self.ndets = i+1
 
+    def generate_cationic_basis(self):
+        self.cationic_basis = set()
+        for idet in self.m_space_det_strings:
+            for iorb in range(self.cas[1]):
+                _ann_i = annop(idet, iorb)
+                if (_ann_i[0] != 0):
+                    self.cationic_basis.add(_ann_i[1])
+
+        self.cationic_basis = np.sort(list(self.cationic_basis))
+
+    def run_tdaci(self, dt, nsteps, orb, propagator='exact'):
+        self.generate_cationic_basis()
+        self.cationic_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.cationic_basis, self.verbose, self.cas)
+        self.generate_initial_state(self.m_space_eigvecs[:,0], orb)
+
+        if (propagator == 'exact'):
+            self.cationic_eigvals, self.cationic_eigvecs = np.linalg.eigh(self.cationic_hamil)
+            # cf. Helgaker Eq. 3.1.27
+            self.exact_h = np.einsum('ij,jk,lk->il', self.cationic_eigvecs, np.diag(-1j*dt*self.cationic_eigvals), self.cationic_eigvecs.conj(), optimize="optimal")
+        if (propagator == 'rk4'):
+            self.rk4_h = np.diag(np.ones(self.cationic_hamil.shape[0])) - (1j)*dt*self.cationic_hamil
+            coeff = np.array([0.5*dt**2, dt**3*(-1j)/6, dt**4/24], dtype='complex128')
+            for idx, pow in enumerate([2,3,4]):
+                self.rk4_h += coeff[idx] * np.linalg.matrix_power(self.cationic_hamil, pow)
+
+    def generate_initial_state(self, psi, orb):
+        _ann_psi, _ann_basis = annihilate_state(psi, orb, self.m_space_det_strings)
+        _psi_t0 = np.zeros(len(self.cationic_basis), dtype='complex128')
+
+        # Now we need to align this to the complete cationic basis
+        icat = 0
+        for iann in range(len(_ann_basis)):
+            while (self.cationic_basis[icat] != _ann_basis[iann]):
+                icat += 1
+
+            _psi_t0[icat] = _ann_psi[iann]
+            icat += 1
+
+        return _psi_t0/(np.dot(_psi_t0.conj(), _psi_t0)) # normalize it
+
+    def do_propagation(self, psi_t, propagator):
+        return np.einsum('ij,j->i', propagator, psi_t, optimize="optimal")
+    
     def run_aci(self):
+        _e_old = 0.0
+        _e_pt2_old = 0.0
+
         for iter in range(self.maxiter):
             _t0 = time.time()
             
@@ -1787,7 +1932,24 @@ class ACISolver:
             
             self.diagonalize_model_space()
             print(f'model space energy: {self.m_space_energy}')
-            if (self.pt2): print(f'pt2-corrected model space energy: {self.m_space_energy + self.e_pt2}\n')
+            self.e_aci = self.m_space_energy
+            
+            if (self.pt2): 
+                self.e_aci_pt2 = self.m_space_energy + self.e_pt2
+                print(f'pt2-corrected model space energy: {self.e_aci_pt2}')
+            
+            if (np.abs(self.e_aci - _e_old) < self.etol):
+                if (self.pt2):
+                    if (np.abs(self.e_aci_pt2 - _e_pt2_old) < self.etol):
+                        break
+                else:
+                    break
+
+            _e_old = self.e_aci
+            if (self.pt2): _e_pt2_old = self.e_aci_pt2
             
             self.coarse_grain_m_space()
+
             _t1 = time.time()
+
+            print(f'Time taken: {_t1-_t0:.5f}\n')
