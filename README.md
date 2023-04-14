@@ -11,9 +11,12 @@ This is a pilot implementation of a four-component multi-reference many-body per
 - NR/4C-CASCI solver
 - NR/4C-DSRG-MRPT2, based on either (NR/4C-)CASCI or (NR/4C-)CASSCF references
   - Use of semicanonical orbitals
-  - Partial reference relaxation
+  - Full reference relaxation
+  - State-averaging
+- NR/4C Adaptive CI (ACI)
+  - TD extension (TD-ACI) for ionized states.
 
 ## To-dos
-- [ ] Full reference relaxation
 - [ ] Memory optimization
 - [ ] DSRG-MRPT3
+- [ ] State-averaged ACI
