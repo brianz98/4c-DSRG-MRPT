@@ -2,7 +2,7 @@
 This is a pilot implementation of a four-component multi-reference many-body perturbation theory based on the DSRG-MRPT2 (**D**riven **S**imilarity **R**enormalization **G**roup second-order **M**ulti-**R**eference **P**erturbation **T**heory) formalism, based on a 4c-CASCI (four-component complete active space configuration interaction) reference.
 
 ## Current capabilities
-- Interface to PySCF, specifically for the Dirac-Hartree-Fock solver and its interface to libcint for integrals.
+- Interface to PySCF, specifically for the Dirac-Hartree-Fock solver and its interface to libcint for integrals. The DC integrals are density fitted, the DCG and DCB cannot be currently density fitted.
 - NR/4C-DHF integral transformation
   - Ability to read in MO coefficients from other sources, specifically [Psi4](https://psicode.org/psi4manual/master/index.html) and [ChronusQ](https://urania.chem.washington.edu/chronusq/chronusq_public/-/wikis/home), the latter enables using 4C-CASSCF references.
   - Density fitting is available throughout the code
