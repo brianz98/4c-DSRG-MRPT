@@ -7,6 +7,7 @@ import scipy
 import itertools
 import copy
 import matplotlib.pyplot as plt
+import os, glob
 
 MACHEPS = 1e-9
 
@@ -842,9 +843,32 @@ def annihilate_state(psi, orb, basis):
     argsort = np.argsort(ann_basis)
     return ann_psi[argsort], ann_basis[argsort]
 
+def eri_h5_write(mol, mo_coeffs, intor, erifile='tmp.h5', gaunt=False, terminal=False):
+    phase = -1 if gaunt else 1
+    pyscf.ao2mo.r_outcore.general(mol, mo_coeffs, erifile=erifile, dataname='tmp', intor=intor, aosym='s1')
+    blksize = 400
+    nij = mo_coeffs[0].shape[1] * mo_coeffs[1].shape[1]
+    with h5py.File(erifile, mode='r+') as feri:
+        for i0, i1 in pyscf.lib.prange(0, nij, blksize):
+            buf = feri['mo_eri'][i0:i1]
+            buf += phase*feri['tmp'][i0:i1]
+            feri['mo_eri'][i0:i1] = buf
+        
+        if (terminal):
+            del feri['tmp']
+
+def clean_tmp():
+    for i in glob.glob('tmp*'):
+        os.remove(i)
+
 class RelForte:
     def __init__(self, mol, c0=None, verbose=True, density_fitting=False, decontract=False):
-        self.density_fitting = density_fitting
+        if (type(density_fitting) is bool):
+            self.density_fitting = density_fitting
+            self.df_basis = None
+        elif(type(density_fitting) is str):
+            self.density_fitting = True
+            self.df_basis = density_fitting
         self.decontract = decontract
         if (self.decontract):
             self.mol, _ = mol.decontract_basis()
@@ -872,7 +896,7 @@ class RelForte:
 
         if (self.density_fitting):
             if (self.verbose): print('{:#^47}'.format('Enabling density fitting!')) 
-            self.rhf = pyscf.scf.RHF(self.mol).density_fit()
+            self.rhf = pyscf.scf.RHF(self.mol).density_fit() if self.df_basis is None else pyscf.scf.RHF(self.mol).density_fit(self.df_basis)
         else:
             self.rhf = pyscf.scf.RHF(self.mol)
 
@@ -912,7 +936,7 @@ class RelForte:
                 print(f'RHF time:                    {_tf-_ti:15.7f} s')
                 print('='*47)
         
-    def run_dhf(self, transform=False, debug=False, frozen=None, with_gaunt=False, with_breit=False, with_ssss=True, dump_mo_coeff=None):
+    def run_dhf(self, transform=False, debug=False, frozen=None, with_gaunt=False, with_breit=False, with_ssss=True, dump_mo_coeff=None, algo='disk', erifile=None):
         _ti = time.time()
         if (self.verbose):
             print('='*47)
@@ -921,7 +945,7 @@ class RelForte:
         # Run relativistic Dirac-Hartree-Fock
         if (self.density_fitting):
             if (self.verbose): print('{:#^47}'.format('Enabling density fitting!')) 
-            self.dhf = pyscf.scf.DHF(self.mol).density_fit()
+            self.dhf = pyscf.scf.DHF(self.mol).density_fit() if self.df_basis is None else pyscf.scf.DHF(self.mol).density_fit(self.df_basis)
         else:
             self.dhf = pyscf.scf.DHF(self.mol)
 
@@ -945,7 +969,7 @@ class RelForte:
                 np.save(_fname, self.dhf.mo_coeff)
 
         if (transform):
-            self.rel_ao2mo(self.dhf.mo_coeff, frozen)
+            self.rel_ao2mo(self.dhf.mo_coeff, frozen, algo, erifile)
             
             self.dhf_e1 = np.einsum('ii->',self.dhf_hcore_mo[:self.nocc, :self.nocc])
             self.dhf_e2 = 0.5*np.einsum('ijij->',self.dhf_eri_full_asym[:self.nocc, :self.nocc, :self.nocc, :self.nocc])            
@@ -1148,11 +1172,11 @@ class RelForte:
             _hcore_cas = _hcore
             
         self.ncombs, self.det_strings = form_cas_determinant_strings(*self.cas)
-        _hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, ncore=self.ncore)
+        self._cas_hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, ncore=self.ncore)
 
         _t1 = time.time()
         
-        self.casci_eigvals, self.casci_eigvecs = np.linalg.eigh(_hamil)
+        self.casci_eigvals, self.casci_eigvecs = np.linalg.eigh(self._cas_hamil)
         _t2 = time.time()
                 
         if (rdm_level>0):
@@ -1626,7 +1650,24 @@ class RelForte:
             print(f'Integral build time:         {_t1-_t0:15.7f} s')
             print('-'*47)
 
-    def rel_ao2mo(self, mo_coeff, frozen):
+    def rel_ao2mo(self, mo_coeff, frozen, algo='disk', erifile=None):
+        def h5_write(fname, slices):
+            pyscf.ao2mo.r_outcore.general(self.mol, (_mo_l[:,slices[0]], _mo_l[:,slices[1]], _mo_l[:,slices[2]], _mo_l[:,slices[3]]), erifile=fname, dataname='mo_eri', intor='int2e_spinor',aosym='s1')
+            eri_h5_write(self.mol, (_mo_s[:,slices[0]],_mo_s[:,slices[1]],_mo_s[:,slices[2]],_mo_s[:,slices[3]]), 'int2e_spsp1spsp2_spinor', erifile=fname)
+            eri_h5_write(self.mol, (_mo_s[:,slices[0]],_mo_s[:,slices[1]],_mo_l[:,slices[2]],_mo_l[:,slices[3]]), 'int2e_spsp1_spinor', erifile=fname)
+            eri_h5_write(self.mol, (_mo_l[:,slices[0]],_mo_l[:,slices[1]],_mo_s[:,slices[2]],_mo_s[:,slices[3]]), 'int2e_spsp2_spinor', erifile=fname, terminal=(not (self.dhf.with_breit or self.dhf.with_gaunt)))
+            if (self.dhf.with_breit or self.dhf.with_gaunt):
+                if (self.dhf.with_gaunt):
+                    eri_h5_write(self.mol, (_mo_l[:,slices[0]],_mo_s[:,slices[1]],_mo_l[:,slices[2]],_mo_s[:,slices[3]]), 'int2e_ssp1ssp2_spinor', erifile=fname, gaunt=True)
+                    eri_h5_write(self.mol, (_mo_l[:,slices[0]],_mo_s[:,slices[1]],_mo_s[:,slices[2]],_mo_l[:,slices[3]]), 'int2e_ssp1sps2_spinor', erifile=fname, gaunt=True)
+                    eri_h5_write(self.mol, (_mo_s[:,slices[0]],_mo_l[:,slices[1]],_mo_l[:,slices[2]],_mo_s[:,slices[3]]), 'int2e_sps1ssp2_spinor', erifile=fname, gaunt=True)
+                    eri_h5_write(self.mol, (_mo_s[:,slices[0]],_mo_l[:,slices[1]],_mo_s[:,slices[2]],_mo_l[:,slices[3]]), 'int2e_sps1sps2_spinor', erifile=fname, gaunt=True, terminal=True)
+                else:
+                    eri_h5_write(self.mol, (_mo_l[:,slices[0]],_mo_s[:,slices[1]],_mo_l[:,slices[2]],_mo_s[:,slices[3]]), 'int2e_breit_ssp1ssp2_spinor', erifile=fname)
+                    eri_h5_write(self.mol, (_mo_l[:,slices[0]],_mo_s[:,slices[1]],_mo_s[:,slices[2]],_mo_l[:,slices[3]]), 'int2e_breit_ssp1sps2_spinor', erifile=fname)
+                    eri_h5_write(self.mol, (_mo_s[:,slices[0]],_mo_l[:,slices[1]],_mo_l[:,slices[2]],_mo_s[:,slices[3]]), 'int2e_breit_sps1ssp2_spinor', erifile=fname)
+                    eri_h5_write(self.mol, (_mo_s[:,slices[0]],_mo_l[:,slices[1]],_mo_s[:,slices[2]],_mo_l[:,slices[3]]), 'int2e_breit_sps1sps2_spinor', erifile=fname, terminal=True)
+                    
         _t0 = time.time()
         self.norb = len(self.dhf.mo_energy)
 
@@ -1643,7 +1684,7 @@ class RelForte:
 
         if (frozen is not None):
             try:
-                assert (type(frozen) is int or type(frozen) is tuple) # [todo]: We should allow freezing virtuals too..
+                assert (type(frozen) is int or type(frozen) is tuple) 
                 if (type(frozen) is int):
                     assert (frozen >= 0 and frozen < self.nelec)
                 else:
@@ -1716,50 +1757,124 @@ class RelForte:
             self.dhf_eri_full_asym = self.dhf_eri_full_asym.swapaxes(1,2) - self.dhf_eri_full_asym.swapaxes(1,2).swapaxes(2,3)
             _t2 = time.time()
         else:
-            _dhf_eri_ao_SSLL = self.mol.intor('int2e_spsp1_spinor')/(2*self.c0)**2 # kinetic balance
+            if (algo == 'naive'):
+                _mem = self.norb**4*16/1e9
+                if (_mem < 1.0):
+                    if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB memory for the AO ERI tensor!')
+                else:
+                    if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the AO ERI tensor!')
 
-            _mem = self.norb**4*16/1e9
-            if (_mem < 1.0):
-                if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB memory for the AO ERI tensor!')
-            else:
-                if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the AO ERI tensor!')
+                _dhf_eri_ao = np.zeros((self.norb,self.norb,self.norb,self.norb),dtype='complex128')
+                _dhf_eri_ao[:_nlrg,:_nlrg,:_nlrg,:_nlrg] = self.mol.intor('int2e_spinor')
+                _dhf_eri_ao[_nlrg:,_nlrg:,_nlrg:,_nlrg:] = self.mol.intor('int2e_spsp1spsp2_spinor')/(2*self.c0)**4
+                _dhf_eri_ao[_nlrg:,_nlrg:,:_nlrg,:_nlrg] = self.mol.intor('int2e_spsp1_spinor')/(2*self.c0)**2
+                _dhf_eri_ao[:_nlrg,:_nlrg,_nlrg:,_nlrg:] = self.mol.intor('int2e_spsp2_spinor')/(2*self.c0)**2
+                if (self.dhf.with_breit or self.dhf.with_gaunt):
+                    if (self.dhf.with_breit):
+                        _dhf_eri_ao[:_nlrg,_nlrg:,:_nlrg,_nlrg:] = self.mol.intor('int2e_breit_ssp1ssp2_spinor')/(2*self.c0)**2
+                        _dhf_eri_ao[:_nlrg,_nlrg:,_nlrg:,:_nlrg] = self.mol.intor('int2e_breit_ssp1sps2_spinor')/(2*self.c0)**2
+                        _dhf_eri_ao[_nlrg:,:_nlrg,:_nlrg,_nlrg:] = self.mol.intor('int2e_breit_sps1ssp2_spinor')/(2*self.c0)**2
+                        _dhf_eri_ao[_nlrg:,:_nlrg,_nlrg:,:_nlrg] = self.mol.intor('int2e_breit_sps1sps2_spinor')/(2*self.c0)**2
+                    else:
+                        # Gaunt term doesn't account for the negative sign, whereas the Breit one does
+                        _dhf_eri_ao[:_nlrg,_nlrg:,:_nlrg,_nlrg:] = -self.mol.intor('int2e_ssp1ssp2_spinor')/(2*self.c0)**2
+                        _dhf_eri_ao[:_nlrg,_nlrg:,_nlrg:,:_nlrg] = -self.mol.intor('int2e_ssp1sps2_spinor')/(2*self.c0)**2
+                        _dhf_eri_ao[_nlrg:,:_nlrg,:_nlrg,_nlrg:] = -self.mol.intor('int2e_sps1ssp2_spinor')/(2*self.c0)**2
+                        _dhf_eri_ao[_nlrg:,:_nlrg,_nlrg:,:_nlrg] = -self.mol.intor('int2e_sps1sps2_spinor')/(2*self.c0)**2
+
+
+                _t1 = time.time()
+                
+                _dhf_eri_mo_full = np.einsum('pi,qj,pqrs,rk,sl->ijkl',np.conj(mo_coeff[:,_nlrg:]),(mo_coeff[:,_nlrg:]),_dhf_eri_ao,np.conj(mo_coeff[:,_nlrg:]),(mo_coeff[:,_nlrg:]),optimize=True)
+                _dhf_eri_full_asym = _dhf_eri_mo_full.swapaxes(1,2) - _dhf_eri_mo_full.swapaxes(1,2).swapaxes(2,3)
         
+                del _dhf_eri_ao, _dhf_eri_mo_full
 
-            _dhf_eri_ao = np.zeros((self.norb,self.norb,self.norb,self.norb),dtype='complex128')
-            _dhf_eri_ao[_nlrg:,_nlrg:,_nlrg:,_nlrg:] = self.mol.intor('int2e_spsp1spsp2_spinor')/(2*self.c0)**4
-            _dhf_eri_ao[:_nlrg,:_nlrg,:_nlrg,:_nlrg] = self.mol.intor('int2e_spinor')
-            _dhf_eri_ao[_nlrg:,_nlrg:,:_nlrg,:_nlrg] = _dhf_eri_ao_SSLL
-            _dhf_eri_ao[:_nlrg,:_nlrg,_nlrg:,_nlrg:] = (_dhf_eri_ao_SSLL.swapaxes(0,2).swapaxes(1,3)) # No need to conjugate as we're using Chemist's notation
+                _t2 = time.time()
 
-            del _dhf_eri_ao_SSLL
+                if (frozen is not None):
+                    self.e_frozen += 0.5*np.einsum('ijij->',_dhf_eri_full_asym[:self.nfrozen,:self.nfrozen,:self.nfrozen,:self.nfrozen])
 
-            _t1 = time.time()
-            
-            _dhf_eri_mo_full = np.einsum('pi,qj,pqrs,rk,sl->ijkl',np.conj(mo_coeff[:,_nlrg:]),(mo_coeff[:,_nlrg:]),_dhf_eri_ao,np.conj(mo_coeff[:,_nlrg:]),(mo_coeff[:,_nlrg:]),optimize=True)
-            _dhf_eri_full_asym = _dhf_eri_mo_full.swapaxes(1,2) - _dhf_eri_mo_full.swapaxes(1,2).swapaxes(2,3)
+                    self.dhf_hcore_mo = _dhf_hcore_mo[_actv, _actv].copy() + np.einsum('ipjp->ij',_dhf_eri_full_asym[_actv,_frzc,_actv,_frzc])
+                    del _dhf_hcore_mo
+                    self.dhf_eri_full_asym = _dhf_eri_full_asym[_actv,_actv,_actv,_actv]
+                    del _dhf_eri_full_asym
+                else:
+                    self.e_frozen = 0.0
+                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    self.dhf_hcore_mo = _dhf_hcore_mo
+            elif (algo == 'disk'):
+                if (erifile is None or type(erifile) is not str):
+                    fname = 'tmp'
+                else:
+                    fname = erifile
+                _fname = fname
+
+                _t1 = time.time()
+                _mem = self.nlrg**4*16/1e9*2
+                if (_mem < 1.0):
+                    if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB disk space for the AO ERI tensor!')
+                else:
+                    if (self.verbose): print(f'Will now allocate {_mem:.3f} GB disk space for the AO ERI tensor!')
+
+                _mo_l = mo_coeff[:_nlrg, _nlrg:]
+                _mo_s = mo_coeff[_nlrg:, _nlrg:]/(2*self.c0)
+
+                if (frozen is not None):
+                    fname = _fname + 'cccc.h5'
+                    h5_write(fname, (_frzc,_frzc,_frzc,_frzc))
+                    with h5py.File(_fname+'cccc.h5', mode='r') as feri:
+                        eri_fc = feri['mo_eri'][:].reshape((self.nfrozen, self.nfrozen, self.nfrozen, self.nfrozen))
+                    self.e_frozen += 0.5*(np.einsum('iijj->',eri_fc)-np.einsum('ijji->',eri_fc))
+                    os.remove(fname)
+                    del eri_fc
+
+                    fname = _fname + 'aacc.h5'
+                    h5_write(fname, (_actv,_actv,_frzc,_frzc))
+                    with h5py.File(_fname+'aacc.h5', mode='r') as feri:
+                        eri_fc_pqii = feri['mo_eri'][:].reshape((self.nlrg, self.nlrg, self.nfrozen, self.nfrozen))
+                    self.dhf_hcore_mo = _dhf_hcore_mo[_actv,_actv].copy()
+                    self.dhf_hcore_mo += np.einsum('pqii->pq', eri_fc_pqii)
+                    os.remove(fname)
+                    del eri_fc_pqii
+
+                    fname = _fname + 'acca.h5'
+                    h5_write(fname, (_actv,_frzc,_frzc,_actv))
+                    with h5py.File(_fname+'acca.h5', mode='r') as feri:
+                        eri_fc_piiq = feri['mo_eri'][:].reshape((self.nlrg, self.nfrozen, self.nfrozen, self.nlrg))
+                    self.dhf_hcore_mo -= np.einsum('piiq->pq', eri_fc_piiq)
+                    os.remove(fname)
+                    del eri_fc_piiq
+
+                fname = _fname + '.h5'
+                h5_write(fname, (_actv,_actv,_actv,_actv))
+                with h5py.File(fname, 'r') as feri:
+                    _dhf_eri_mo_full = np.asarray(feri['mo_eri']).reshape((self.nlrg,self.nlrg,self.nlrg,self.nlrg))
+                os.remove(fname)
     
-            del _dhf_eri_ao, _dhf_eri_mo_full
+                # If a different erifile is supplied we keep the file
+                for tmph5 in glob.glob('tmp*.h5'):
+                    os.remove(tmph5)
+                
+                _dhf_eri_full_asym = _dhf_eri_mo_full.swapaxes(1,2) - _dhf_eri_mo_full.swapaxes(1,2).swapaxes(2,3)
+                _t2 = time.time()
 
-            _t2 = time.time()
+                if (frozen is not None):
+                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    del _dhf_eri_full_asym, _dhf_eri_mo_full
+                else:
+                    self.e_frozen = 0.0
+                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    self.dhf_hcore_mo = _dhf_hcore_mo
             
-            if (frozen is not None):
-                self.e_frozen += 0.5*np.einsum('ijij->',_dhf_eri_full_asym[:self.nfrozen,:self.nfrozen,:self.nfrozen,:self.nfrozen])
-
-                self.dhf_hcore_mo = _dhf_hcore_mo[_actv, _actv].copy() + np.einsum('ipjp->ij',_dhf_eri_full_asym[_actv,_frzc,_actv,_frzc])
-                del _dhf_hcore_mo
-                self.dhf_eri_full_asym = _dhf_eri_full_asym[_actv,_actv,_actv,_actv]
-                del _dhf_eri_full_asym
-            else:
-                self.e_frozen = 0.0
-                self.dhf_eri_full_asym = _dhf_eri_full_asym
-                self.dhf_hcore_mo = _dhf_hcore_mo
-
         self.nuclear_repulsion += self.e_frozen
 
         if (self.verbose):
             print(f'\nTiming report')
             print(f'....integral retrieval:      {(_t1-_t0):15.7f} s')
             print(f'....integral transformation: {(_t2-_t1):15.7f} s')
+        
+        
 
 class ACISolver:
     def __init__(self, sys, pspace0, verbose, cas, sigma, gamma, relativistic, maxiter=50, pt2=True, etol=1e-8):
@@ -1875,19 +1990,40 @@ class ACISolver:
         self.cationic_basis = np.sort(list(self.cationic_basis))
 
     def run_tdaci(self, dt, nsteps, orb, propagator='exact'):
+        self.dt = dt/24.18884327 # attoseconds to a.u. https://en.wikipedia.org/wiki/Hartree_atomic_units
         self.generate_cationic_basis()
         self.cationic_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.cationic_basis, self.verbose, self.cas)
-        self.generate_initial_state(self.m_space_eigvecs[:,0], orb)
+        self.psi_t = self.generate_initial_state(self.m_space_eigvecs[:,0], orb)
+        self.prepare_hole_occnum()
 
         if (propagator == 'exact'):
             self.cationic_eigvals, self.cationic_eigvecs = np.linalg.eigh(self.cationic_hamil)
             # cf. Helgaker Eq. 3.1.27
-            self.exact_h = np.einsum('ij,jk,lk->il', self.cationic_eigvecs, np.diag(-1j*dt*self.cationic_eigvals), self.cationic_eigvecs.conj(), optimize="optimal")
+            self.propagator = np.einsum('ij,jk,lk->il', self.cationic_eigvecs, np.diag(-1j*self.dt*self.cationic_eigvals), self.cationic_eigvecs.conj(), optimize="optimal")
         if (propagator == 'rk4'):
-            self.rk4_h = np.diag(np.ones(self.cationic_hamil.shape[0])) - (1j)*dt*self.cationic_hamil
-            coeff = np.array([0.5*dt**2, dt**3*(-1j)/6, dt**4/24], dtype='complex128')
+            self.propagator = np.diag(np.ones(self.cationic_hamil.shape[0])) - (1j)*self.dt*self.cationic_hamil
+            coeff = np.array([0.5*self.dt**2, self.dt**3*(-1j)/6, self.dt**4/24], dtype='complex128')
             for idx, pow in enumerate([2,3,4]):
-                self.rk4_h += coeff[idx] * np.linalg.matrix_power(self.cationic_hamil, pow)
+                self.propagator += coeff[idx] * np.linalg.matrix_power(self.cationic_hamil, pow)
+
+        self.hole_occnum = np.zeros(self.cas[1])
+        for istep in range(nsteps):
+            self.psi_t = np.einsum('ij,j->i', self.propagator, self.psi_t, optimize="optimal")
+            
+            self.hole_occnum = self.get_hole_occnum()
+
+    def prepare_hole_occnum(self):
+        # Essentially the 1-rdm code but only calculate the diagonal, so we can pre-determine which basis states will contribute
+        _i_occlist = {i: set() for i in range(self.cas[1])}
+        for idet, det in enumerate(self.cationic_basis):
+            for i in range(self.cas[1]):
+                if (test_bit(det,i)==1):
+                    _i_occlist[i].add(idet)
+                
+        self.i_occlist = {int(i): np.sort(list(_i_occlist[i])) for i in range(self.cas[1])} # convert from set to list
+
+    def get_hole_occnum(self):
+        self.hole_occnum = [np.dot((self.psi_t[self.i_occlist[i]]).conj(), self.psi_t[self.i_occlist[i]]).real for i in range(self.cas[1])]
 
     def generate_initial_state(self, psi, orb):
         _ann_psi, _ann_basis = annihilate_state(psi, orb, self.m_space_det_strings)
@@ -1953,3 +2089,5 @@ class ACISolver:
             _t1 = time.time()
 
             print(f'Time taken: {_t1-_t0:.5f}\n')
+        
+        self.aci_rdm1 = get_1_rdm(self.m_space_det_strings, self.cas, self.m_space_eigvecs[:,0], self.verbose)
