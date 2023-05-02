@@ -386,7 +386,6 @@ def cq_to_pyscf(mol, bin_name):
     CQ order:    [La1, La2, ..., Sa1, Sa2, ..., Lb1, Lb2, ..., Sb1, Sb2, ...]
     PySCF order: [La1, Lb1, ..., Sa1, Sb1, ...]
     """
-    import h5py
     f = h5py.File(bin_name, 'r')
     mo_cq = f['SCF']['MO1'][:]
 
@@ -936,12 +935,14 @@ class RelForte:
                 print(f'RHF time:                    {_tf-_ti:15.7f} s')
                 print('='*47)
         
-    def run_dhf(self, transform=False, debug=False, frozen=None, with_gaunt=False, with_breit=False, with_ssss=True, dump_mo_coeff=None, algo='disk', erifile=None):
+    def run_dhf(self, transform=False, debug=False, frozen=None, with_gaunt=False, with_breit=False, with_ssss=True, dump_mo_coeff=None, algo='disk', erifile=None, fake_dhf=None):
         _ti = time.time()
+
         if (self.verbose):
             print('='*47)
             print('{:^47}'.format('PySCF DHF interface'))
             print('='*47)
+
         # Run relativistic Dirac-Hartree-Fock
         if (self.density_fitting):
             if (self.verbose): print('{:#^47}'.format('Enabling density fitting!')) 
@@ -952,40 +953,46 @@ class RelForte:
         self.dhf.with_gaunt = with_gaunt
         self.dhf.with_breit = with_breit
         self.dhf.with_ssss = with_ssss
-        self.dhf_energy = self.dhf.kernel()
-        if (self.verbose): 
-            _t0 = time.time()
-            print(f"Relativistic DHF Energy:     {self.dhf_energy:15.7f} Eh")
-            print(f'PySCF RHF time:              {_t0-_ti:15.7f} s')
-            print('-'*47)
+        
+        if (type(fake_dhf) is str):
+            f = h5py.File(fake_dhf, 'r')
+            self.dhf_energy = f['SCF']['TOTAL_ENERGY'][:][0]
 
-        if (dump_mo_coeff is not None):
-            if dump_mo_coeff != False:
-                if type(dump_mo_coeff) is str:
-                    _fname = dump_mo_coeff
-                else:
-                    _fname = 'mo_coeff'
-                if (self.verbose): print(f'Dumping MO coefficients to {_fname}')
-                np.save(_fname, self.dhf.mo_coeff)
+        else:
+            self.dhf_energy = self.dhf.kernel()
+            if (self.verbose): 
+                _t0 = time.time()
+                print(f"Relativistic DHF Energy:     {self.dhf_energy:15.7f} Eh")
+                print(f'PySCF RHF time:              {_t0-_ti:15.7f} s')
+                print('-'*47)
 
-        if (transform):
-            self.rel_ao2mo(self.dhf.mo_coeff, frozen, algo, erifile)
-            
-            self.dhf_e1 = np.einsum('ii->',self.dhf_hcore_mo[:self.nocc, :self.nocc])
-            self.dhf_e2 = 0.5*np.einsum('ijij->',self.dhf_eri_full_asym[:self.nocc, :self.nocc, :self.nocc, :self.nocc])            
-            self.dhf_e_rebuilt = self.dhf_e1 + self.dhf_e2 + self.nuclear_repulsion
-            if (debug and self.verbose):
-                print(f"Rebuilt DHF Energy:          {self.dhf_e_rebuilt.real:15.7f} Eh")
-                print(f"Error to PySCF:              {np.abs(self.dhf_e_rebuilt.real - self.dhf_energy):15.7f} Eh")
-                if (frozen is None):
-                    print(f"Diff 1e:                     {np.abs(self.dhf.scf_summary['e1']-self.dhf_e1):15.7f} Eh")
-                    print(f"Diff 2e:                     {np.abs(self.dhf.scf_summary['e2']-self.dhf_e2):15.7f} Eh")
-            
-            _t3 = time.time()
-            
-            if (self.verbose):
-                print(f'Total time taken:            {(_t3-_t0):15.7f} s')
-                print('='*47)
+            if (dump_mo_coeff is not None):
+                if dump_mo_coeff != False:
+                    if type(dump_mo_coeff) is str:
+                        _fname = dump_mo_coeff
+                    else:
+                        _fname = 'mo_coeff'
+                    if (self.verbose): print(f'Dumping MO coefficients to {_fname}')
+                    np.save(_fname, self.dhf.mo_coeff)
+
+            if (transform):
+                self.rel_ao2mo(self.dhf.mo_coeff, frozen, algo, erifile)
+                
+                self.dhf_e1 = np.einsum('ii->',self.dhf_hcore_mo[:self.nocc, :self.nocc])
+                self.dhf_e2 = 0.5*np.einsum('ijij->',self.dhf_eri_full_asym[:self.nocc, :self.nocc, :self.nocc, :self.nocc])            
+                self.dhf_e_rebuilt = self.dhf_e1 + self.dhf_e2 + self.nuclear_repulsion
+                if (debug and self.verbose):
+                    print(f"Rebuilt DHF Energy:          {self.dhf_e_rebuilt.real:15.7f} Eh")
+                    print(f"Error to PySCF:              {np.abs(self.dhf_e_rebuilt.real - self.dhf_energy):15.7f} Eh")
+                    if (frozen is None):
+                        print(f"Diff 1e:                     {np.abs(self.dhf.scf_summary['e1']-self.dhf_e1):15.7f} Eh")
+                        print(f"Diff 2e:                     {np.abs(self.dhf.scf_summary['e2']-self.dhf_e2):15.7f} Eh")
+                
+                _t3 = time.time()
+                
+                if (self.verbose):
+                    print(f'Total time taken:            {(_t3-_t0):15.7f} s')
+                    print('='*47)
     
     def run_mp2(self, relativistic=True):
         if (relativistic):
@@ -1541,7 +1548,7 @@ class RelForte:
         
         self.e_dsrg_mrpt2_relaxed = (self.e_casci + self.e_dsrg_mrpt2 + self.e_relax).real
 
-    def read_in_mo(self, relativistic, mo_coeff_in='mo_coeff.npy', frozen=None, debug=False):
+    def read_in_mo(self, relativistic, mo_coeff_in='mo_coeff.npy', frozen=None, debug=False, algo='disk', erifile=None, eriread=None):
         if type(mo_coeff_in) is str:
             _mo_coeff = np.load(mo_coeff_in)
         else:
@@ -1549,7 +1556,7 @@ class RelForte:
         if (not relativistic):
             self.nonrel_ao2mo(_mo_coeff, frozen)
         else:
-            self.rel_ao2mo(_mo_coeff, frozen)
+            self.rel_ao2mo(_mo_coeff, frozen, algo, erifile, eriread)
             if (debug):
                 self.dhf_e1 = np.einsum('ii->',self.dhf_hcore_mo[:self.nocc, :self.nocc])
                 self.dhf_e2 = 0.5*np.einsum('ijij->',self.dhf_eri_full_asym[:self.nocc, :self.nocc, :self.nocc, :self.nocc])            
@@ -1650,7 +1657,7 @@ class RelForte:
             print(f'Integral build time:         {_t1-_t0:15.7f} s')
             print('-'*47)
 
-    def rel_ao2mo(self, mo_coeff, frozen, algo='disk', erifile=None):
+    def rel_ao2mo(self, mo_coeff, frozen, algo='disk', erifile=None, eriread=None):
         def h5_write(fname, slices):
             pyscf.ao2mo.r_outcore.general(self.mol, (_mo_l[:,slices[0]], _mo_l[:,slices[1]], _mo_l[:,slices[2]], _mo_l[:,slices[3]]), erifile=fname, dataname='mo_eri', intor='int2e_spinor',aosym='s1')
             eri_h5_write(self.mol, (_mo_s[:,slices[0]],_mo_s[:,slices[1]],_mo_s[:,slices[2]],_mo_s[:,slices[3]]), 'int2e_spsp1spsp2_spinor', erifile=fname)
@@ -1669,7 +1676,7 @@ class RelForte:
                     eri_h5_write(self.mol, (_mo_s[:,slices[0]],_mo_l[:,slices[1]],_mo_s[:,slices[2]],_mo_l[:,slices[3]]), 'int2e_breit_sps1sps2_spinor', erifile=fname, terminal=True)
                     
         _t0 = time.time()
-        self.norb = len(self.dhf.mo_energy)
+        self.norb = self.mol.nao_2c()*2
 
         mo_coeff = zero_mat(mo_coeff)
 
@@ -1804,10 +1811,19 @@ class RelForte:
                     self.dhf_eri_full_asym = _dhf_eri_full_asym
                     self.dhf_hcore_mo = _dhf_hcore_mo
             elif (algo == 'disk'):
+                _cleanup = True
                 if (erifile is None or type(erifile) is not str):
                     fname = 'tmp'
                 else:
                     fname = erifile
+                    _cleanup = False
+                
+                _read_eri = False
+                if (type(eriread) is str):
+                    fname = eriread
+                    _read_eri = True
+                    _cleanup = False
+
                 _fname = fname
 
                 _t1 = time.time()
@@ -1821,41 +1837,49 @@ class RelForte:
                 _mo_s = mo_coeff[_nlrg:, _nlrg:]/(2*self.c0)
 
                 if (frozen is not None):
+                    _mem = _frzc**4*16/1e9*2
+                    if (_mem < 1.0):
+                        if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB disk space for the frozen core ERI tensor!')
+                    else:
+                        if (self.verbose): print(f'Will now allocate {_mem:.3f} GB disk space for the frozen core ERI tensor!')
+
                     fname = _fname + 'cccc.h5'
-                    h5_write(fname, (_frzc,_frzc,_frzc,_frzc))
+                    if (not _read_eri): h5_write(fname, (_frzc,_frzc,_frzc,_frzc))
                     with h5py.File(_fname+'cccc.h5', mode='r') as feri:
                         eri_fc = feri['mo_eri'][:].reshape((self.nfrozen, self.nfrozen, self.nfrozen, self.nfrozen))
                     self.e_frozen += 0.5*(np.einsum('iijj->',eri_fc)-np.einsum('ijji->',eri_fc))
-                    os.remove(fname)
+                    if (_cleanup): os.remove(fname)
                     del eri_fc
 
+                    _mem = 2*(_actv*_frzc)**2*16/1e9*2
+                    if (_mem < 1.0):
+                        if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB disk space for the aacc and acca ERI tensor!')
+                    else:
+                        if (self.verbose): print(f'Will now allocate {_mem:.3f} GB disk space for the aacc and acca ERI tensor!')
+
                     fname = _fname + 'aacc.h5'
-                    h5_write(fname, (_actv,_actv,_frzc,_frzc))
+                    if (not _read_eri): h5_write(fname, (_actv,_actv,_frzc,_frzc))
                     with h5py.File(_fname+'aacc.h5', mode='r') as feri:
                         eri_fc_pqii = feri['mo_eri'][:].reshape((self.nlrg, self.nlrg, self.nfrozen, self.nfrozen))
                     self.dhf_hcore_mo = _dhf_hcore_mo[_actv,_actv].copy()
                     self.dhf_hcore_mo += np.einsum('pqii->pq', eri_fc_pqii)
-                    os.remove(fname)
+                    if (_cleanup): os.remove(fname)
                     del eri_fc_pqii
 
                     fname = _fname + 'acca.h5'
-                    h5_write(fname, (_actv,_frzc,_frzc,_actv))
+                    if (not _read_eri): h5_write(fname, (_actv,_frzc,_frzc,_actv))
                     with h5py.File(_fname+'acca.h5', mode='r') as feri:
                         eri_fc_piiq = feri['mo_eri'][:].reshape((self.nlrg, self.nfrozen, self.nfrozen, self.nlrg))
                     self.dhf_hcore_mo -= np.einsum('piiq->pq', eri_fc_piiq)
-                    os.remove(fname)
+                    if (_cleanup): os.remove(fname)
                     del eri_fc_piiq
 
                 fname = _fname + '.h5'
-                h5_write(fname, (_actv,_actv,_actv,_actv))
+                if (not _read_eri): h5_write(fname, (_actv,_actv,_actv,_actv))
                 with h5py.File(fname, 'r') as feri:
-                    _dhf_eri_mo_full = np.asarray(feri['mo_eri']).reshape((self.nlrg,self.nlrg,self.nlrg,self.nlrg))
-                os.remove(fname)
-    
-                # If a different erifile is supplied we keep the file
-                for tmph5 in glob.glob('tmp*.h5'):
-                    os.remove(tmph5)
-                
+                    _dhf_eri_mo_full = feri['mo_eri'][:].reshape((self.nlrg,self.nlrg,self.nlrg,self.nlrg))
+                if (_cleanup): os.remove(fname)
+                    
                 _dhf_eri_full_asym = _dhf_eri_mo_full.swapaxes(1,2) - _dhf_eri_mo_full.swapaxes(1,2).swapaxes(2,3)
                 _t2 = time.time()
 
@@ -2091,3 +2115,43 @@ class ACISolver:
             print(f'Time taken: {_t1-_t0:.5f}\n')
         
         self.aci_rdm1 = get_1_rdm(self.m_space_det_strings, self.cas, self.m_space_eigvecs[:,0], self.verbose)
+
+def davidson_solver(hamil,nroots,maxdim, maxiter):
+    L = nroots*2
+    ndets = hamil.shape[0]
+    b = np.zeros((ndets, maxdim), dtype='complex128')
+    b[:L,:L] = np.eye(L)
+    res = np.zeros(ndets, dtype='complex128')
+    hamdiag = np.diag(hamil)
+    c = np.zeros((ndets,nroots), dtype='complex128')
+
+    for iter in range(maxiter):
+        b[:,:L], r = np.linalg.qr(b[:,:L])
+        G = np.einsum('ni,nm,mj->ij',b[:,:L].conj(),hamil,b[:,:L]) # conj comes from the definition of the inner product
+        lamb, alfa = np.linalg.eigh(G) # This should really be eig, right?
+
+        
+        if (L+nroots <= maxdim):
+            for k in range(nroots):
+                res = np.einsum('i,mn,ni->m',alfa[:,k],hamil,b[:,:L],optimize='optimal') - lamb[k]*np.einsum('i,ni->n',alfa[:,k],b[:,:L],optimize='optimal')
+                delta = res / (lamb[k]-hamdiag)
+                delta /= np.linalg.norm(delta)
+                b[:,L+k] = delta
+            
+            L += nroots
+        else:
+            print('Collapse!')
+            # subspace collapse
+            c = np.einsum('ik,mi->mk',alfa[:,:nroots],b[:,:L])
+
+            for k in range(nroots):
+                res = 0.0j
+                for i in range(L):
+                    res += alfa[i,k]*(np.dot(hamil,b[:,i]) - lamb[k]*b[:,i])
+                delta = res / (lamb[k]-hamdiag)
+                delta /= np.linalg.norm(delta)
+                b[:,nroots+k] = delta
+            b[:,:nroots] = c
+            L = nroots*2
+
+    return lamb[:nroots], alfa[:,:nroots]
