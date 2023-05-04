@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import os, glob
 
 MACHEPS = 1e-9
+EH_TO_WN = 219474.63
+EH_TO_EV = 27.211399
 
 def antisymmetrize_2(T,indices):
     # antisymmetrize the residual
@@ -860,6 +862,14 @@ def clean_tmp():
     for i in glob.glob('tmp*'):
         os.remove(i)
 
+def print_energies(energies, nstates=None, splitting=True):
+    if (nstates is None): nstates = len(energies)
+
+    print('{:<10}{:<20}{:<20}{:<20}{:<20}'.format('State','Energy / Eh','Splitting / Eh','Splitting / cm-1', 'Splitting / meV'))
+    for istate in range(nstates):
+        splitting = energies[istate] - energies[istate-1] if (istate>0) else 0
+        print('{:<10}{:<20}{:<20}{:<20}{:<20}'.format(f'{istate:d}',f'{energies[istate]:+.7e}',f'{splitting:+.7e}',f'{splitting*EH_TO_WN:+.7e}',f'{splitting*EH_TO_EV*1000:+.7e}'))
+
 class RelForte:
     def __init__(self, mol, c0=None, verbose=True, density_fitting=False, decontract=False):
         if (type(density_fitting) is bool):
@@ -1292,6 +1302,8 @@ class RelForte:
             self.rdms_canon = _rdms
             self.rdms = _rdms_semican
         if (self.verbose):
+            if (len(self.state_avg) > 1):
+                print_energies(np.real(self.casci_eigvals[self.state_avg]+self.e_casci_frzc+self.nuclear_repulsion))
             print(f'Total time taken:             {(_t4-_t0):15.7f} s')
             print('='*47)
 
@@ -1465,6 +1477,9 @@ class RelForte:
                 print(f'Fully relaxed DSRG-MRPT2 E_corr:       {self.relax_energies[irelax][0]-self.relax_energies[irelax][2]:15.7f} Eh')
                 self.e_dsrg_mrpt2_fully_relaxed = self.relax_energies[irelax][0]
                 self.e_dsrg_mrpt2 = self.e_dsrg_mrpt2_fully_relaxed
+
+            if (len(self.state_avg) > 1):
+                print_energies(np.real(self.dsrg_mrpt2_relax_eigvals_shifted[self.state_avg]))
             print(f'Time taken:                  {_t1-_t0:15.7f} s')
             print('='*47)
 
@@ -1547,6 +1562,7 @@ class RelForte:
         self.e_relax = self.e_relax.real
         
         self.e_dsrg_mrpt2_relaxed = (self.e_casci + self.e_dsrg_mrpt2 + self.e_relax).real
+        self.dsrg_mrpt2_relax_eigvals_shifted = (self.e_casci + self.e_dsrg_mrpt2 + self.dsrg_mrpt2_relax_eigvals + _e_scalar)
 
     def read_in_mo(self, relativistic, mo_coeff_in='mo_coeff.npy', frozen=None, debug=False, algo='disk', erifile=None, eriread=None):
         if type(mo_coeff_in) is str:
@@ -1827,17 +1843,12 @@ class RelForte:
                 _fname = fname
 
                 _t1 = time.time()
-                _mem = self.nlrg**4*16/1e9*2
-                if (_mem < 1.0):
-                    if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB disk space for the AO ERI tensor!')
-                else:
-                    if (self.verbose): print(f'Will now allocate {_mem:.3f} GB disk space for the AO ERI tensor!')
 
                 _mo_l = mo_coeff[:_nlrg, _nlrg:]
                 _mo_s = mo_coeff[_nlrg:, _nlrg:]/(2*self.c0)
 
                 if (frozen is not None):
-                    _mem = _frzc**4*16/1e9*2
+                    _mem = self.nfrozen**4*16/1e9*2
                     if (_mem < 1.0):
                         if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB disk space for the frozen core ERI tensor!')
                     else:
@@ -1851,7 +1862,7 @@ class RelForte:
                     if (_cleanup): os.remove(fname)
                     del eri_fc
 
-                    _mem = 2*(_actv*_frzc)**2*16/1e9*2
+                    _mem = 2*(self.nlrg*self.nfrozen)**2*16/1e9*2
                     if (_mem < 1.0):
                         if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB disk space for the aacc and acca ERI tensor!')
                     else:
@@ -1873,6 +1884,12 @@ class RelForte:
                     self.dhf_hcore_mo -= np.einsum('piiq->pq', eri_fc_piiq)
                     if (_cleanup): os.remove(fname)
                     del eri_fc_piiq
+
+                _mem = self.nlrg**4*16/1e9*2
+                if (_mem < 1.0):
+                    if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB disk space for the AO ERI tensor!')
+                else:
+                    if (self.verbose): print(f'Will now allocate {_mem:.3f} GB disk space for the AO ERI tensor!')
 
                 fname = _fname + '.h5'
                 if (not _read_eri): h5_write(fname, (_actv,_actv,_actv,_actv))
@@ -1897,8 +1914,7 @@ class RelForte:
             print(f'\nTiming report')
             print(f'....integral retrieval:      {(_t1-_t0):15.7f} s')
             print(f'....integral transformation: {(_t2-_t1):15.7f} s')
-        
-        
+
 
 class ACISolver:
     def __init__(self, sys, pspace0, verbose, cas, sigma, gamma, relativistic, maxiter=50, pt2=True, etol=1e-8):
