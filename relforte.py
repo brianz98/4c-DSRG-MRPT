@@ -6,7 +6,6 @@ import time
 import scipy
 import itertools
 import copy
-import matplotlib.pyplot as plt
 import os, glob
 import warnings
 
