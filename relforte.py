@@ -8,6 +8,7 @@ import itertools
 import copy
 import matplotlib.pyplot as plt
 import os, glob
+import warnings
 
 MACHEPS = 1e-9
 EH_TO_WN = 219474.63
@@ -967,7 +968,6 @@ class RelForte:
         if (type(fake_dhf) is str):
             f = h5py.File(fake_dhf, 'r')
             self.dhf_energy = f['SCF']['TOTAL_ENERGY'][:][0]
-
         else:
             self.dhf_energy = self.dhf.kernel()
             if (self.verbose): 
@@ -1564,7 +1564,7 @@ class RelForte:
         self.e_dsrg_mrpt2_relaxed = (self.e_casci + self.e_dsrg_mrpt2 + self.e_relax).real
         self.dsrg_mrpt2_relax_eigvals_shifted = (self.e_casci + self.e_dsrg_mrpt2 + self.dsrg_mrpt2_relax_eigvals + _e_scalar)
 
-    def read_in_mo(self, relativistic, mo_coeff_in='mo_coeff.npy', frozen=None, debug=False, algo='disk', erifile=None, eriread=None):
+    def read_in_mo(self, relativistic, mo_coeff_in, frozen=None, debug=False, algo='direct', erifile=None, eriread=None):
         if type(mo_coeff_in) is str:
             _mo_coeff = np.load(mo_coeff_in)
         else:
@@ -1573,16 +1573,7 @@ class RelForte:
             self.nonrel_ao2mo(_mo_coeff, frozen)
         else:
             self.rel_ao2mo(_mo_coeff, frozen, algo, erifile, eriread)
-            if (debug):
-                self.dhf_e1 = np.einsum('ii->',self.dhf_hcore_mo[:self.nocc, :self.nocc])
-                self.dhf_e2 = 0.5*np.einsum('ijij->',self.dhf_eri_full_asym[:self.nocc, :self.nocc, :self.nocc, :self.nocc])            
-                self.dhf_e_rebuilt = self.dhf_e1 + self.dhf_e2 + self.nuclear_repulsion
-                if (self.verbose):
-                    print(f"Rebuilt DHF Energy:          {self.dhf_e_rebuilt.real:15.7f} Eh")
-                    print(f"Error to PySCF:              {(self.dhf_e_rebuilt - self.dhf_energy).real:15.7f} Eh")
-                    print(f"Diff 1e:                     {(self.dhf.scf_summary['e1']-self.dhf_e1).real:15.7f} Eh")
-                    print(f"Diff 2e:                     {(self.dhf.scf_summary['e2']-self.dhf_e2).real:15.7f} Eh")
-        
+
     def nonrel_ao2mo(self, mo_coeff, frozen):
         _t0 = time.time()
         print('Building integrals...')
@@ -1673,7 +1664,54 @@ class RelForte:
             print(f'Integral build time:         {_t1-_t0:15.7f} s')
             print('-'*47)
 
-    def rel_ao2mo(self, mo_coeff, frozen, algo='disk', erifile=None, eriread=None):
+    def rel_ao2mo_einsum(self, mo_coeff, nlrg, eri, moslice):
+        _mo_l = mo_coeff[:nlrg, nlrg:]
+        _mo_s = mo_coeff[nlrg:, nlrg:]
+
+        # LLLL
+        eri += np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_l[:,moslice[0]]),(_mo_l[:,moslice[1]]),self.mol.intor('int2e_spinor'),np.conj(_mo_l[:,moslice[2]]),(_mo_l[:,moslice[3]]),optimize=True)
+        # SSSS
+        eri += np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_s[:,moslice[0]]),(_mo_s[:,moslice[1]]),self.mol.intor('int2e_spsp1spsp2_spinor'),np.conj(_mo_s[:,moslice[2]]),(_mo_s[:,moslice[3]]),optimize=True)/(2*self.c0)**4
+        # SSLL
+        eri += np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_s[:,moslice[0]]),(_mo_s[:,moslice[1]]),self.mol.intor('int2e_spsp1_spinor'),np.conj(_mo_l[:,moslice[2]]),(_mo_l[:,moslice[3]]),optimize=True)/(2*self.c0)**2
+        # LLSS
+        eri += np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_l[:,moslice[0]]),(_mo_l[:,moslice[1]]),self.mol.intor('int2e_spsp2_spinor'),np.conj(_mo_s[:,moslice[2]]),(_mo_s[:,moslice[3]]),optimize=True)/(2*self.c0)**2
+
+        if (self.dhf.with_breit):
+            # LSLS
+            eri += np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_l[:,moslice[0]]),(_mo_s[:,moslice[1]]),self.mol.intor('int2e_breit_ssp1ssp2_spinor'),np.conj(_mo_l[:,moslice[2]]),(_mo_s[:,moslice[3]]),optimize=True)/(2*self.c0)**2
+            # LSSL
+            eri += np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_l[:,moslice[0]]),(_mo_s[:,moslice[1]]),self.mol.intor('int2e_breit_ssp1sps2_spinor'),np.conj(_mo_s[:,moslice[2]]),(_mo_l[:,moslice[3]]),optimize=True)/(2*self.c0)**2
+            # SLLS
+            eri += np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_s[:,moslice[0]]),(_mo_l[:,moslice[1]]),self.mol.intor('int2e_breit_sps1ssp2_spinor'),np.conj(_mo_l[:,moslice[2]]),(_mo_s[:,moslice[3]]),optimize=True)/(2*self.c0)**2
+            # SLSL
+            eri += np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_s[:,moslice[0]]),(_mo_l[:,moslice[1]]),self.mol.intor('int2e_breit_sps1sps2_spinor'),np.conj(_mo_s[:,moslice[2]]),(_mo_l[:,moslice[3]]),optimize=True)/(2*self.c0)**2                        
+        elif (self.dhf.with_gaunt):
+            # Gaunt term doesn't account for the negative sign, whereas the Breit one does
+            # LSLS
+            eri -= np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_l[:,moslice[0]]),(_mo_s[:,moslice[1]]),self.mol.intor('int2e_ssp1ssp2_spinor'),np.conj(_mo_l[:,moslice[2]]),(_mo_s[:,moslice[3]]),optimize=True)/(2*self.c0)**2
+            # LSSL
+            eri -= np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_l[:,moslice[0]]),(_mo_s[:,moslice[1]]),self.mol.intor('int2e_ssp1sps2_spinor'),np.conj(_mo_s[:,moslice[2]]),(_mo_l[:,moslice[3]]),optimize=True)/(2*self.c0)**2
+            # SLLS
+            eri -= np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_s[:,moslice[0]]),(_mo_l[:,moslice[1]]),self.mol.intor('int2e_sps1ssp2_spinor'),np.conj(_mo_l[:,moslice[2]]),(_mo_s[:,moslice[3]]),optimize=True)/(2*self.c0)**2
+            # SLSL
+            eri -= np.einsum('pi,qj,pqrs,rk,sl->ijkl', np.conj(_mo_s[:,moslice[0]]),(_mo_l[:,moslice[1]]),self.mol.intor('int2e_sps1sps2_spinor'),np.conj(_mo_s[:,moslice[2]]),(_mo_l[:,moslice[3]]),optimize=True)/(2*self.c0)**2                        
+        return eri
+
+    def rel_read_eri(self, eriread):
+        _t0 = time.time()
+        npzfile = np.load(eriread)
+        self.e_frozen = npzfile['e_frozen']
+        self.dhf_hcore_mo = npzfile['dhf_hcore_mo']
+        self.dhf_eri_full_asym = npzfile['dhf_eri_full_asym']
+
+        self.nuclear_repulsion += self.e_frozen
+        _t1 = time.time()
+        if (self.verbose):
+            print(f'\nTiming report')
+            print(f'....integral reading: {(_t1-_t0):15.7f} s')
+
+    def rel_ao2mo(self, mo_coeff, frozen, algo='direct', erifile=None, eriread=None):
         def h5_write(fname, slices):
             pyscf.ao2mo.r_outcore.general(self.mol, (_mo_l[:,slices[0]], _mo_l[:,slices[1]], _mo_l[:,slices[2]], _mo_l[:,slices[3]]), erifile=fname, dataname='mo_eri', intor='int2e_spinor',aosym='s1')
             eri_h5_write(self.mol, (_mo_s[:,slices[0]],_mo_s[:,slices[1]],_mo_s[:,slices[2]],_mo_s[:,slices[3]]), 'int2e_spsp1spsp2_spinor', erifile=fname)
@@ -1693,8 +1731,6 @@ class RelForte:
                     
         _t0 = time.time()
         self.norb = self.mol.nao_2c()*2
-
-        mo_coeff = zero_mat(mo_coeff)
 
         # Harvest h from DHF (Includes both S & L blocks)
         _dhf_hcore_ao = self.dhf.get_hcore()
@@ -1756,8 +1792,6 @@ class RelForte:
             _Lpq_mo_SS = np.einsum('ip,jq,lij->lpq',np.conj(mo_coeff[_nlrg:,_nlrg:]),mo_coeff[_nlrg:,_nlrg:],_Lpq_SS,optimize='optimal')
             del _Lpq_LL, _Lpq_SS
 
-            _t1 = time.time()
-
             if (frozen is not None):
                 # The 2e part of e_frozen
                 self.e_frozen += 0.5*(np.einsum('lii,ljj->',_Lpq_mo_LL[:,_frzc,_frzc],_Lpq_mo_LL[:,_frzc,_frzc])+np.einsum('lii,ljj->',_Lpq_mo_SS[:,_frzc,_frzc],_Lpq_mo_SS[:,_frzc,_frzc])+np.einsum('lii,ljj->',_Lpq_mo_SS[:,_frzc,_frzc],_Lpq_mo_LL[:,_frzc,_frzc])+np.einsum('lii,ljj->',_Lpq_mo_LL[:,_frzc,_frzc],_Lpq_mo_SS[:,_frzc,_frzc]))
@@ -1778,9 +1812,71 @@ class RelForte:
             self.dhf_eri_full_asym = np.einsum('lpq,lrs->pqrs',_Lpq_mo_LL[:,_actv,_actv],_Lpq_mo_LL[:,_actv,_actv],optimize='optimal') + np.einsum('lpq,lrs->pqrs',_Lpq_mo_SS[:,_actv,_actv],_Lpq_mo_SS[:,_actv,_actv],optimize='optimal') + np.einsum('lpq,lrs->pqrs',_Lpq_mo_LL[:,_actv,_actv],_Lpq_mo_SS[:,_actv,_actv],optimize='optimal') + np.einsum('lpq,lrs->pqrs',_Lpq_mo_SS[:,_actv,_actv],_Lpq_mo_LL[:,_actv,_actv],optimize='optimal')
             del _Lpq_mo_LL, _Lpq_mo_SS
             self.dhf_eri_full_asym = self.dhf_eri_full_asym.swapaxes(1,2) - self.dhf_eri_full_asym.swapaxes(1,2).swapaxes(2,3)
-            _t2 = time.time()
         else:
-            if (algo == 'naive'):
+            if (algo == 'direct'):
+                _write_eri = False
+                if (type(erifile) is str):
+                    _write_eri = True
+                
+                if (type(eriread) is str):
+                    self.rel_read_eri(eriread)
+                    return
+
+                if (frozen is not None):
+                    _mem = self.nfrozen**4*16/1e9*2
+                    if (_mem < 1.0):
+                        if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB memory for the frozen core ERI tensor!')
+                    else:
+                        if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the frozen core ERI tensor!')
+
+                    eri_fc_ao = np.zeros((self.nfrozen,self.nfrozen,self.nfrozen,self.nfrozen),dtype='complex128')
+                    eri_fc = self.rel_ao2mo_einsum(mo_coeff, _nlrg, eri_fc_ao, (_frzc,_frzc,_frzc,_frzc))
+                    self.e_frozen += 0.5*(np.einsum('iijj->',eri_fc)-np.einsum('ijji->',eri_fc))
+                    del eri_fc, eri_fc_ao
+
+                    _mem = 2*(self.nlrg*self.nfrozen)**2*16/1e9*2
+                    if (_mem < 1.0):
+                        if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB memory for the aacc and acca ERI tensor!')
+                    else:
+                        if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the aacc and acca ERI tensor!')
+
+                    eri_aacc_ao = np.zeros((self.nlrg,self.nlrg,self.nfrozen,self.nfrozen),dtype='complex128')
+                    eri_aacc = self.rel_ao2mo_einsum(mo_coeff, _nlrg, eri_aacc_ao, (_actv,_actv,_frzc,_frzc))
+                    self.dhf_hcore_mo = _dhf_hcore_mo[_actv,_actv].copy()
+                    self.dhf_hcore_mo += np.einsum('pqii->pq', eri_aacc)
+                    del eri_aacc_ao, eri_aacc
+
+                    eri_acca_ao = np.zeros((self.nlrg,self.nfrozen,self.nfrozen,self.nlrg),dtype='complex128')
+                    eri_acca = self.rel_ao2mo_einsum(mo_coeff, _nlrg, eri_acca_ao, (_actv,_frzc,_frzc,_actv))
+                    self.dhf_hcore_mo -= np.einsum('piiq->pq', eri_acca)
+                    del eri_acca_ao, eri_acca
+
+                _mem = _nlrg**4*16/1e9
+                if (_mem < 1.0):
+                    if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB memory for the AO ERI tensor!')
+                else:
+                    if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the AO ERI tensor!')
+
+                _dhf_eri_mo_full = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg),dtype='complex128')
+                _dhf_eri_mo_full = self.rel_ao2mo_einsum(mo_coeff, _nlrg, _dhf_eri_mo_full, (_actv,_actv,_actv,_actv))
+                
+                _dhf_eri_full_asym = _dhf_eri_mo_full.swapaxes(1,2) - _dhf_eri_mo_full.swapaxes(1,2).swapaxes(2,3)
+        
+                del _dhf_eri_mo_full
+
+                if (frozen is not None):
+                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    del _dhf_eri_full_asym
+                else:
+                    self.e_frozen = 0.0
+                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    self.dhf_hcore_mo = _dhf_hcore_mo
+
+                if (_write_eri):
+                    np.savez(erifile, e_frozen=self.e_frozen, dhf_hcore_mo=self.dhf_hcore_mo, dhf_eri_full_asym=self.dhf_eri_full_asym)
+            
+            elif (algo == 'naive'):
+                warnings.warn("The naive algorithm uses excessive memory and is only for testing! Please switch to the 'direct' algorithm for production runs!")
                 _mem = self.norb**4*16/1e9
                 if (_mem < 1.0):
                     if (self.verbose): print(f'Will now allocate {_mem*1000:.3f} MB memory for the AO ERI tensor!')
@@ -1804,16 +1900,11 @@ class RelForte:
                         _dhf_eri_ao[:_nlrg,_nlrg:,_nlrg:,:_nlrg] = -self.mol.intor('int2e_ssp1sps2_spinor')/(2*self.c0)**2
                         _dhf_eri_ao[_nlrg:,:_nlrg,:_nlrg,_nlrg:] = -self.mol.intor('int2e_sps1ssp2_spinor')/(2*self.c0)**2
                         _dhf_eri_ao[_nlrg:,:_nlrg,_nlrg:,:_nlrg] = -self.mol.intor('int2e_sps1sps2_spinor')/(2*self.c0)**2
-
-
-                _t1 = time.time()
                 
                 _dhf_eri_mo_full = np.einsum('pi,qj,pqrs,rk,sl->ijkl',np.conj(mo_coeff[:,_nlrg:]),(mo_coeff[:,_nlrg:]),_dhf_eri_ao,np.conj(mo_coeff[:,_nlrg:]),(mo_coeff[:,_nlrg:]),optimize=True)
                 _dhf_eri_full_asym = _dhf_eri_mo_full.swapaxes(1,2) - _dhf_eri_mo_full.swapaxes(1,2).swapaxes(2,3)
         
                 del _dhf_eri_ao, _dhf_eri_mo_full
-
-                _t2 = time.time()
 
                 if (frozen is not None):
                     self.e_frozen += 0.5*np.einsum('ijij->',_dhf_eri_full_asym[:self.nfrozen,:self.nfrozen,:self.nfrozen,:self.nfrozen])
@@ -1841,8 +1932,6 @@ class RelForte:
                     _cleanup = False
 
                 _fname = fname
-
-                _t1 = time.time()
 
                 _mo_l = mo_coeff[:_nlrg, _nlrg:]
                 _mo_s = mo_coeff[_nlrg:, _nlrg:]/(2*self.c0)
@@ -1898,7 +1987,6 @@ class RelForte:
                 if (_cleanup): os.remove(fname)
                     
                 _dhf_eri_full_asym = _dhf_eri_mo_full.swapaxes(1,2) - _dhf_eri_mo_full.swapaxes(1,2).swapaxes(2,3)
-                _t2 = time.time()
 
                 if (frozen is not None):
                     self.dhf_eri_full_asym = _dhf_eri_full_asym
@@ -1909,12 +1997,10 @@ class RelForte:
                     self.dhf_hcore_mo = _dhf_hcore_mo
             
         self.nuclear_repulsion += self.e_frozen
-
+        _t1 = time.time()
         if (self.verbose):
             print(f'\nTiming report')
-            print(f'....integral retrieval:      {(_t1-_t0):15.7f} s')
-            print(f'....integral transformation: {(_t2-_t1):15.7f} s')
-
+            print(f'....integral transformation: {(_t1-_t0):15.7f} s')
 
 class ACISolver:
     def __init__(self, sys, pspace0, verbose, cas, sigma, gamma, relativistic, maxiter=50, pt2=True, etol=1e-8):
@@ -2171,3 +2257,15 @@ def davidson_solver(hamil,nroots,maxdim, maxiter):
             L = nroots*2
 
     return lamb[:nroots], alfa[:,:nroots]
+
+if (__name__=='__main__'):
+    mol = pyscf.gto.M(
+        verbose = 2,
+        atom = '''
+    H 0 0 0
+    F 0 1.5 0
+    ''',
+        basis = 'cc-pvdz', spin=0, charge=0, symmetry=False
+    )
+    a = RelForte(mol, verbose=True, density_fitting=False, decontract=False)
+    a.run_dhf(transform=True, debug=True, frozen=(2,0), dump_mo_coeff=False, algo='direct', with_gaunt=True)
