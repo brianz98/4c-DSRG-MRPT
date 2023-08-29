@@ -8,250 +8,16 @@ import itertools
 import copy
 import os, glob
 import warnings
+from contractions import *
+from wicked_contractions import *
 
 MACHEPS = 1e-9
 EH_TO_WN = 219474.63
 EH_TO_EV = 27.211399
 
-def antisymmetrize_2(T,indices):
-    # antisymmetrize the residual
-    T_anti = np.zeros(T.shape, dtype='complex128')
-    T_anti += np.einsum("ijab->ijab",T)
-    if indices[0] == indices[1]:
-        T_anti -= np.einsum("ijab->jiab",T)
-        if indices[2] == indices[3]:
-            T_anti += np.einsum("ijab->jiba",T)
-    if indices[2] == indices[3]:    
-        T_anti -= np.einsum("ijab->ijba",T)        
-    return T_anti
-
 def zero_mat(mat):
     mat[np.abs(mat) < 1e-12] = 0
     return mat
-
-def dsrg_HT(F, V, T1, T2, gamma1, eta1, lambda2, lambda3, mf):
-    # All three terms for MRPT2/3 are the same, but just involve different F/V
-    hc = mf.hc
-    ha = mf.ha
-    pa = mf.pa
-    pv = mf.pv
-
-    # all quantities are stored ^{hh..}_{pp..}
-    # h = {c,a}; p = {a, v}
-    E = 0.0
-    E += +1.000 * np.einsum("iu,iv,vu->",F[hc,pa],T1[hc,pa],eta1,optimize="optimal")
-    E += -0.500 * np.einsum("iu,ixvw,vwux->",F[hc,pa],T2[hc,ha,pa,pa],lambda2,optimize="optimal")
-    E += +1.000 * np.einsum("ia,ia->",F[hc,pv],T1[hc,pv],optimize="optimal")
-    E += +1.000 * np.einsum("ua,va,uv->",F[ha,pv],T1[ha,pv],gamma1,optimize="optimal")
-    E += -0.500 * np.einsum("ua,wxva,uvwx->",F[ha,pv],T2[ha,ha,pa,pv],lambda2,optimize="optimal")
-    E += -0.500 * np.einsum("iu,ivwx,uvwx->",T1[hc,pa],V[hc,ha,pa,pa],lambda2,optimize="optimal")
-    E += -0.500 * np.einsum("ua,vwxa,vwux->",T1[ha,pv],V[ha,ha,pa,pv],lambda2,optimize="optimal")
-    E += +0.250 * np.einsum("ijuv,ijwx,vx,uw->",T2[hc,hc,pa,pa],V[hc,hc,pa,pa],eta1,eta1,optimize="optimal")
-    E += +0.125 * np.einsum("ijuv,ijwx,uvwx->",T2[hc,hc,pa,pa],V[hc,hc,pa,pa],lambda2,optimize="optimal")
-    E += +0.500 * np.einsum("iwuv,ixyz,vz,uy,xw->",T2[hc,ha,pa,pa],V[hc,ha,pa,pa],eta1,eta1,gamma1,optimize="optimal")
-    E += +1.000 * np.einsum("iwuv,ixyz,vz,uxwy->",T2[hc,ha,pa,pa],V[hc,ha,pa,pa],eta1,lambda2,optimize="optimal")
-    E += +0.250 * np.einsum("iwuv,ixyz,xw,uvyz->",T2[hc,ha,pa,pa],V[hc,ha,pa,pa],gamma1,lambda2,optimize="optimal")
-    E += +0.250 * np.einsum("iwuv,ixyz,uvxwyz->",T2[hc,ha,pa,pa],V[hc,ha,pa,pa],lambda3,optimize="optimal")
-    E += +0.500 * np.einsum("ijua,ijva,uv->",T2[hc,hc,pa,pv],V[hc,hc,pa,pv],eta1,optimize="optimal")
-    E += +1.000 * np.einsum("ivua,iwxa,ux,wv->",T2[hc,ha,pa,pv],V[hc,ha,pa,pv],eta1,gamma1,optimize="optimal")
-    E += +1.000 * np.einsum("ivua,iwxa,uwvx->",T2[hc,ha,pa,pv],V[hc,ha,pa,pv],lambda2,optimize="optimal")
-    E += +0.500 * np.einsum("vwua,xyza,uz,yw,xv->",T2[ha,ha,pa,pv],V[ha,ha,pa,pv],eta1,gamma1,gamma1,optimize="optimal")
-    E += +0.250 * np.einsum("vwua,xyza,uz,xyvw->",T2[ha,ha,pa,pv],V[ha,ha,pa,pv],eta1,lambda2,optimize="optimal")
-    E += +1.000 * np.einsum("vwua,xyza,yw,uxvz->",T2[ha,ha,pa,pv],V[ha,ha,pa,pv],gamma1,lambda2,optimize="optimal")
-    E += -0.250 * np.einsum("vwua,xyza,uxyvwz->",T2[ha,ha,pa,pv],V[ha,ha,pa,pv],lambda3,optimize="optimal")
-    E += +0.250 * np.einsum("ijab,ijab->",T2[hc,hc,pv,pv],V[hc,hc,pv,pv],optimize="optimal")
-    E += +0.500 * np.einsum("iuab,ivab,vu->",T2[hc,ha,pv,pv],V[hc,ha,pv,pv],gamma1,optimize="optimal")
-    E += +0.250 * np.einsum("uvab,wxab,xv,wu->",T2[ha,ha,pv,pv],V[ha,ha,pv,pv],gamma1,gamma1,optimize="optimal")
-    E += +0.125 * np.einsum("uvab,wxab,wxuv->",T2[ha,ha,pv,pv],V[ha,ha,pv,pv],lambda2,optimize="optimal")
-    return E
-
-def Hbar_active_twobody_wicked(mf, F, V, T1, T2, gamma1, eta1):
-    hc = mf.hc
-    ha = mf.ha
-    pa = mf.pa
-    pv = mf.pv
-
-    # all quantities are stored ^{hh..}_{pp..}
-    # h = {c,a}; p = {a, v}
-    
-    _V = np.zeros((mf.nact,mf.nact,mf.nact,mf.nact), dtype='complex128')
-    # Term 6
-    _V += -0.500 * np.einsum("ua,wxva->wxuv",F[ha, pv], T2[ha,ha, pa,pv],optimize="optimal")
-    # Term 7
-    _V += -0.500 * np.einsum("iu,ixvw->uxvw",F[hc, pa], T2[hc,ha, pa,pa],optimize="optimal")
-    # Term 8
-    _V += -0.500 * np.einsum("iu,ivwx->wxuv",T1[hc,pa], V[hc,ha, pa,pa],optimize="optimal")
-    # Term 9
-    _V += -0.500 * np.einsum("ua,vwxa->uxvw",T1[ha,pv], V[ha,ha, pa,pv],optimize="optimal")
-    # Term 10
-    _V += +0.125 * np.einsum("uvab,wxab->uvwx", T2[ha,ha, pv,pv], V[ha,ha, pv,pv],optimize="optimal")
-    _V += +0.250 * np.einsum("uvya,wxza,yz->uvwx", T2[ha,ha, pa,pv], V[ha,ha, pa,pv],eta1,optimize="optimal")
-    # Term 11
-    _V += +0.125 * np.einsum("ijuv,ijwx->wxuv", T2[hc,hc, pa,pa], V[hc,hc, pa,pa],optimize="optimal")
-    _V += +0.250 * np.einsum("iyuv,izwx,zy->wxuv", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],gamma1,optimize="optimal")
-    # Term 12
-    _V += +1.000 * np.einsum("ivua,iwxa->vxuw", T2[hc,ha, pa,pv], V[hc,ha, pa,pv],optimize="optimal")
-    _V += +1.000 * np.einsum("ivuy,iwxz,yz->vxuw", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],eta1,optimize="optimal")
-    _V += +1.000 * np.einsum("vyua,wzxa,zy->vxuw", T2[ha,ha, pa,pv], V[ha,ha, pa,pv],gamma1,optimize="optimal")
-    
-    return antisymmetrize_2(_V.conj(), 'aaaa')
-
-def Hbar_active_onebody_wicked(mf, F, V, T1, T2, gamma1, eta1, lambda2):
-    hc = mf.hc
-    ha = mf.ha
-    pa = mf.pa
-    pv = mf.pv
-
-    # all quantities are stored ^{hh..}_{pp..}
-    # h = {c,a}; p = {a,v}
-    _F = np.zeros((mf.nact,mf.nact), dtype='complex128')
-    _F += -1.000 * np.einsum("iu,iv->uv",F[hc, pa],T1[hc,pa],optimize="optimal")
-    _F += -1.000 * np.einsum("iw,ivux,xw->vu",F[hc, pa], T2[hc,ha, pa,pa],eta1,optimize="optimal")
-    _F += -1.000 * np.einsum("ia,ivua->vu",F[hc, pv], T2[hc,ha, pa,pv],optimize="optimal")
-    _F += +1.000 * np.einsum("ua,va->vu",F[ha, pv],T1[ha,pv],optimize="optimal")
-    _F += +1.000 * np.einsum("wa,vxua,wx->vu",F[ha, pv], T2[ha,ha, pa,pv],gamma1,optimize="optimal")
-    _F += -1.000 * np.einsum("iw,iuvx,wx->vu",T1[hc,pa], V[hc,ha, pa,pa],eta1,optimize="optimal")
-    _F += -1.000 * np.einsum("ia,iuva->vu",T1[hc,pv], V[hc,ha, pa,pv],optimize="optimal")
-    _F += +1.000 * np.einsum("wa,uxva,xw->vu",T1[ha,pv], V[ha,ha, pa,pv],gamma1,optimize="optimal")
-    _F += -0.500 * np.einsum("ijuw,ijvx,wx->vu", T2[hc,hc, pa,pa], V[hc,hc, pa,pa],eta1,optimize="optimal")
-    _F += +0.500 * np.einsum("ivuw,ixyz,wxyz->vu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],lambda2,optimize="optimal")
-    _F += -1.000 * np.einsum("ixuw,iyvz,wz,yx->vu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],eta1,gamma1,optimize="optimal")
-    _F += -1.000 * np.einsum("ixuw,iyvz,wyxz->vu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],lambda2,optimize="optimal")
-    _F += -0.500 * np.einsum("ijua,ijva->vu", T2[hc,hc, pa,pv], V[hc,hc, pa,pv],optimize="optimal")
-    _F += -1.000 * np.einsum("iwua,ixva,xw->vu", T2[hc,ha, pa,pv], V[hc,ha, pa,pv],gamma1,optimize="optimal")
-    _F += -0.500 * np.einsum("vwua,xyza,xywz->vu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv],lambda2,optimize="optimal")
-    _F += -0.500 * np.einsum("wxua,yzva,zx,yw->vu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv],gamma1,gamma1,optimize="optimal")
-    _F += -0.250 * np.einsum("wxua,yzva,yzwx->vu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv],lambda2,optimize="optimal")
-    _F += +0.500 * np.einsum("iuwx,ivyz,xz,wy->uv", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],eta1,eta1,optimize="optimal")
-    _F += +0.250 * np.einsum("iuwx,ivyz,wxyz->uv", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],lambda2,optimize="optimal")
-    _F += -0.500 * np.einsum("iywx,iuvz,wxyz->vu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],lambda2,optimize="optimal")
-    _F += +1.000 * np.einsum("iuwa,ivxa,wx->uv", T2[hc,ha, pa,pv], V[hc,ha, pa,pv],eta1,optimize="optimal")
-    _F += +1.000 * np.einsum("uxwa,vyza,wz,yx->uv", T2[ha,ha, pa,pv], V[ha,ha, pa,pv],eta1,gamma1,optimize="optimal")
-    _F += +1.000 * np.einsum("uxwa,vyza,wyxz->uv", T2[ha,ha, pa,pv], V[ha,ha, pa,pv],lambda2,optimize="optimal")
-    _F += +0.500 * np.einsum("xywa,uzva,wzxy->vu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv],lambda2,optimize="optimal")
-    _F += +0.500 * np.einsum("iuab,ivab->uv", T2[hc,ha, pv,pv], V[hc,ha, pv,pv],optimize="optimal")
-    _F += +0.500 * np.einsum("uwab,vxab,xw->uv", T2[ha,ha, pv,pv], V[ha,ha, pv,pv],gamma1,optimize="optimal")
-
-    return _F.conj()
-
-def Hbar_active_twobody(mf, F, V, T1, T2, gamma1, eta1):
-    hc = mf.hc
-    ha = mf.ha
-    pa = mf.pa
-    pv = mf.pv
-    hh = mf.hh
-    pp = mf.pp
-
-    # all quantities are stored ^{hh..}_{pp..}
-    # h = {c,a}; p = {a, v}
-    
-    _V = np.zeros((mf.nact,mf.nact,mf.nact,mf.nact), dtype='complex128')
-
-    # Term 6
-    _V += +np.einsum("ue,wxev->wxuv",F[ha, pv], T2[ha,ha, pv,pa], optimize="optimal")
-    _V += -np.einsum("ue,wxev->wxvu",F[ha, pv], T2[ha,ha, pv,pa], optimize="optimal")
-
-    # Term 7
-    _V += +np.einsum("mu,mxvw->xuvw",F[hc, pa], T2[hc,ha, pa,pa], optimize="optimal")
-    _V += -np.einsum("mu,mxvw->uxvw",F[hc, pa], T2[hc,ha, pa,pa], optimize="optimal")
-
-    # Term 8
-    _V += +np.einsum("mu,vmwx->wxuv", T1[hc, pa], V[ha,hc, pa,pa], optimize="optimal")
-    _V += -np.einsum("mu,vmwx->wxvu", T1[hc, pa], V[ha,hc, pa,pa], optimize="optimal")
-
-    # Term 9
-    _V += +np.einsum("ue,vwex->uxvw", T1[ha, pv], V[ha,ha, pv,pa], optimize="optimal")
-    _V += -np.einsum("ue,vwex->xuvw", T1[ha, pv], V[ha,ha, pv,pa], optimize="optimal")
-    
-    # Term 10
-    _V += +0.5*np.einsum("uvef,wxef->uvwx", T2[ha,ha, pv,pv], V[ha,ha, pv,pv], optimize="optimal")
-    _V += +np.einsum("uvye,wxze,yz->uvwx", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], eta1, optimize="optimal")
-
-    # Term 11
-    _V += +0.5*np.einsum("mnuv,mnwx->wxuv", T2[hc,hc, pa,pa], V[hc,hc, pa,pa], optimize="optimal")
-    _V += +np.einsum("myuv,mzwx,zy->wxuv", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], gamma1, optimize="optimal")
-
-    # Term 12
-    _V += +np.einsum("mvua,mwxa->vxuw", T2[hc,ha, pa,pp], V[hc,ha, pa,pp], optimize="optimal")
-    _V += -np.einsum("mvua,mwxa->xvuw", T2[hc,ha, pa,pp], V[hc,ha, pa,pp], optimize="optimal")
-    _V += -np.einsum("mvua,mwxa->vxwu", T2[hc,ha, pa,pp], V[hc,ha, pa,pp], optimize="optimal")
-    _V += +np.einsum("mvua,mwxa->xvwu", T2[hc,ha, pa,pp], V[hc,ha, pa,pp], optimize="optimal")
-
-    _V -= +np.einsum("muyv,mxzw,zy->vxuw", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], gamma1, optimize="optimal")
-    _V -= -np.einsum("muyv,mxzw,zy->xvuw", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], gamma1, optimize="optimal")
-    _V -= -np.einsum("muyv,mxzw,zy->vxwu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], gamma1, optimize="optimal")
-    _V -= +np.einsum("muyv,mxzw,zy->xvwu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], gamma1, optimize="optimal")
-        
-    _V += +np.einsum("vyue,wzxe,zy->vxuw", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], gamma1, optimize="optimal")
-    _V += -np.einsum("vyue,wzxe,zy->xvuw", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], gamma1, optimize="optimal")
-    _V += -np.einsum("vyue,wzxe,zy->vxwu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], gamma1, optimize="optimal")
-    _V += +np.einsum("vyue,wzxe,zy->xvwu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], gamma1, optimize="optimal")
-    
-    return _V
-
-def Hbar_active_onebody(mf, F, V, T1, T2, gamma1, eta1, lambda2):
-    hc = mf.hc
-    ha = mf.ha
-    pa = mf.pa
-    pv = mf.pv
-    hh = mf.hh
-    pp = mf.pp
-
-    # all quantities are stored ^{hh..}_{pp..}
-    # h = {c,a}; p = {a,v}
-    _F = np.zeros((mf.nact,mf.nact), dtype='complex128')
-
-    # Term 2
-    ## First term
-    _F += +1.000 * np.einsum("ua,va->vu", F[ha, pv], T1[ha, pv], optimize="optimal")
-    ## Second term vanishes for F_AA
-    ## Third term gives rise to 5 distinct contractions
-    _F += +0.500 * np.einsum("muef,mvef->uv", T2[hc,ha, pv,pv], V[hc,ha, pv,pv], optimize="optimal")
-    _F += +0.500 * np.einsum("wuef,xvef,xw->uv", T2[ha,ha, pv,pv], V[ha,ha, pv,pv], gamma1, optimize="optimal")
-    _F += +1.000 * np.einsum("muew,mvex,wx->uv", T2[hc,ha, pv,pa], V[hc,ha, pv,pa], eta1, optimize="optimal")
-    _F += +1.000 * np.einsum("xuew,yvez,wz,yx->uv", T2[ha,ha, pv,pa], V[ha,ha, pv,pa], eta1, gamma1, optimize="optimal")
-    _F += +0.500 * np.einsum("muwy,mvxz,wx,yz->uv", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], eta1, eta1, optimize="optimal")
-    ## Fourth term
-    _F += +0.250 * np.einsum("muwx,mvyz,wxyz->uv", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], lambda2, optimize="optimal")
-    ## Fifth term
-    _F += +1.000 * np.einsum("uxwe,vyze,wyxz->uv", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], lambda2, optimize="optimal")    
-
-    # Term 3
-    ## First term
-    _F += -1.000 * np.einsum("mu,mv->uv", F[hc, pa], T1[hc, pa], optimize="optimal")
-    ## Second term again vanishes
-    ## Third term again gives rise to 5 distinct contractions
-    _F += -0.500 * np.einsum("mnue,mnve->vu", T2[hc,hc, pa,pv], V[hc,hc, pa,pv], optimize="optimal")
-    _F += -0.500 * np.einsum("mnuw,mnvx,wx->vu", T2[hc,hc, pa,pa], V[hc,hc, pa,pa], eta1, optimize="optimal")
-    _F += -1.000 * np.einsum("mwue,mxve,xw->vu", T2[hc,ha, pa,pv], V[hc,ha, pa,pv], gamma1, optimize="optimal")
-    _F += -1.000 * np.einsum("mxuw,myvz,wz,yx->vu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], eta1, gamma1, optimize="optimal")
-    _F += -0.500 * np.einsum("wxue,yzve,zx,yw->vu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], gamma1, gamma1, optimize="optimal")
-    ## Fourth term
-    _F += -0.250 * np.einsum("wxue,yzve,yzwx->vu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], lambda2, optimize="optimal")
-    ## Fifth term
-    _F += -1.000 * np.einsum("ixuw,iyvz,wyxz->vu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], lambda2, optimize="optimal")
-    
-    # Term 4
-    ## First term: two distinct contractions
-    _F += +1.000 * np.einsum("we,vxue,wx->vu", F[ha, pv], T2[ha,ha, pa,pv], gamma1, optimize="optimal")
-    _F += +1.000 * np.einsum("ma,vmua->vu", F[hc, pp], T2[ha,hc, pa,pp], optimize="optimal") 
-    _F += -1.000 * np.einsum("mw,mvxu,xw->uv",F[hc, pa], T2[hc,ha, pa,pa], gamma1, optimize="optimal")
-    ## Third term
-    _F += +0.500 * np.einsum("mvuw,mxyz,wxyz->vu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa], lambda2, optimize="optimal")
-    ## Fourth term
-    _F += -0.500 * np.einsum("vwue,xyze,xywz->vu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], lambda2, optimize="optimal")
-
-    # Term 5
-    ## First term
-    _F += +1.000 * np.einsum("wa,uxva,xw->vu", T1[ha, pv], V[ha,ha, pa,pv], gamma1, optimize="optimal")
-    _F += -1.000 * np.einsum("ia,iuva->vu", T1[hc, pp], V[hc,ha, pa,pp], optimize="optimal")
-    ## Second term
-    _F += -1.000 * np.einsum("iw,iuxv,wx->vu", T1[hc, pa], V[hc,ha, pa,pa], gamma1, optimize="optimal")
-    ## Third term
-    _F += +0.500 * np.einsum("xywa,uzva,wzxy->vu", T2[ha,ha, pa,pv], V[ha,ha, pa,pv], lambda2, optimize="optimal")
-    ## Fourth term
-    _F += -0.500 * np.einsum("iywx,iuvz,wxyz->vu", T2[hc,ha, pa,pa], V[hc,ha, pa,pa],lambda2,optimize="optimal")
-    return _F
 
 def regularized_denominator(x, s):
     if abs(x) <= MACHEPS:
@@ -1003,6 +769,45 @@ class RelForte:
                     print(f'Total time taken:            {(_t3-_t0):15.7f} s')
                     print('='*47)
     
+    def do_mmfx2c(self, mo_coeff, mode='orthonormal'):
+        if (mode == 'orthonormal'):
+            _s, _U_ovlp = np.linalg.eigh(self.dhf.get_ovlp()) # Diagonalize overlap matrix
+            _X_lowdin = _U_ovlp @ np.diag(_s**(-0.5)) # The Lowdin canonicalization matrix
+            _Xinv = np.diag(np.sqrt(_s)) @ _U_ovlp.T.conj()
+
+            assert (np.allclose(_X_lowdin @ _Xinv, np.eye(self.norb)))
+
+            _F_4c = _X_lowdin.T.conj() @ self.dhf.get_fock() @ _X_lowdin
+            _e, _mo_coeff_on = np.linalg.eigh(_F_4c)
+            assert np.allclose(self.dhf.mo_energy, _e)
+
+            _cp_neg = _mo_coeff_on[self.nlrg:, :self.nlrg]
+            _cl_neg = _mo_coeff_on[:self.nlrg, :self.nlrg]
+            _Xtrans = np.linalg.solve(_cp_neg@_cp_neg.T.conj(), -_cp_neg@_cl_neg.T.conj())
+
+            _W1 = np.block([[np.eye(self.nlrg), -_Xtrans.T.conj()],[_Xtrans, np.eye(self.nlrg)]])
+            _W2 = np.block([[np.diag((1+np.diag(_Xtrans.T.conj()@_Xtrans))**(-0.5)) , np.zeros((self.nlrg, self.nlrg))],\
+                        [np.zeros((self.nlrg, self.nlrg)), np.diag(((1+np.diag(_Xtrans@_Xtrans.T.conj()))**(-0.5)))]])
+            self.U_x2c = _W1 @ _W2
+            print(np.abs(self.U_x2c).sum())
+
+            _F_2c = (self.U_x2c.T.conj() @ _F_4c @ self.U_x2c)[:self.nlrg, :self.nlrg]
+            _e_2c, _C_2c_on = np.linalg.eigh(_F_2c)
+
+            _X_lowdin_2c = (_X_lowdin @ self.U_x2c)[:self.nlrg, :self.nlrg]
+            return _X_lowdin_2c @ _C_2c_on
+        elif (mode == 'atomic'):
+            _cp_neg = mo_coeff[self.nlrg:, :self.nlrg]
+            _cl_neg = mo_coeff[:self.nlrg, :self.nlrg]
+            _Xtrans = np.linalg.solve(_cp_neg@_cp_neg.T.conj(), -_cp_neg@_cl_neg.T.conj())
+
+            _W1 = np.block([[np.eye(self.nlrg), -_Xtrans.T.conj()],[_Xtrans, np.eye(self.nlrg)]])
+            _W2 = np.block([[np.diag((1+np.diag(_Xtrans.T.conj()@_Xtrans))**(-0.5)) , np.zeros((self.nlrg, self.nlrg))],\
+                        [np.zeros((self.nlrg, self.nlrg)), np.diag(((1+np.diag(_Xtrans@_Xtrans.T.conj()))**(-0.5)))]])
+            self.U_x2c = _W1 @ _W2
+            return (self.U_x2c.T.conj() @ mo_coeff)[:self.nlrg, self.nlrg:]
+    
+
     def run_mp2(self, relativistic=True):
         if (relativistic):
             _hcore = self.dhf_hcore_mo
