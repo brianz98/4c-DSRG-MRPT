@@ -10,7 +10,7 @@ w.add_space("a", "fermion", "general", list('uvwxyzrst'))
 w.add_space("v", "fermion", "unoccupied", list('abcdef'))
 wt = w.WickTheorem()
 
-def split_single_tensor(tensor):
+def split_single_tensor(tensor, flip=False):
     """
     Split a single expression or string of the form
     >>> H^{a0,a3}_{a1,a2}
@@ -23,8 +23,9 @@ def split_single_tensor(tensor):
     label, indices = str(tensor).split('^{')
     upper = indices.split('}_')[0].split(',')
     lower = indices.split('_{')[1].split('}')[0].split(',')
-    if label in ['F', 'V']: 
-        upper, lower = lower, upper
+    if (flip):
+        if label in ['F', 'V']: 
+            upper, lower = lower, upper
     return label, upper, lower
 
 def get_unique_tensor_indices(tensor, unused_indices, index_dict):
@@ -121,7 +122,7 @@ def compile_einsum(expression, fmt='dict', tensor_name=None):
 
     einsumstr = left \
         + ' ' \
-        + f"+= {factor:+.8f} * np.einsum('"\
+        + f"+= scale * {factor:+.8f} * np.einsum('"\
         + exstr \
         + "', " \
         + tenstr
@@ -145,16 +146,17 @@ def get_many_body_equations(op1, op2, nbody):
     comm_expr = wt.contract(comm, nbody*2, nbody*2)
     return comm_expr.to_manybody_equation("H")
 
-def make_nbody_elements(op1, op2, nbody, fmt='slice'):
+def make_nbody_elements(op1, op2, nbody, fmt='slice', keys_in=None, do_lhs_slice=True):
     """
     Returns the elements of the commutator of two operators in einsum format.
     """
     code = ''
     nlines = 0
     mbeq = get_many_body_equations(op1, op2, nbody)
+    keys = mbeq.keys() if keys_in is None else keys_in
 
-    for key in mbeq.keys():
-        if (nbody != 0):
+    for key in keys:
+        if (nbody != 0 and do_lhs_slice):
             if (fmt == 'slice'):
                 lhs_slice = re.findall(r'[a-zA-Z]', key)
                 if (len(lhs_slice) == 4):
@@ -178,23 +180,27 @@ if __name__ == "__main__":
     T2op = w.utils.gen_op('T2',2,'av','ca',diagonal=False)
     Top = T1op + T2op
 
+    fmt = 'slice'
+
     input_dict = {
-        'H_T_C0':   (Hop, Top, 0),
-        'H1_T1_C1': (F, T1op, 1),
-        'H1_T2_C1': (F, T2op, 1),
-        'H2_T1_C1': (V, T1op, 1),
-        'H2_T2_C1': (V, T2op, 1),
-        'H1_T2_C2': (F, T2op, 2),
-        'H2_T1_C2': (V, T1op, 2),
-        'H2_T2_C2': (V, T2op, 2)
+        'H_T_C0':   (Hop, Top, 0, fmt),
+        'H_T_C1_aa'  : (Hop, Top, 1, fmt, ['a|a'], False),
+        'H_T_C2_aaaa'  : (Hop, Top, 2, fmt, ['aa|aa'], False),
+        'H1_T1_C1': (F, T1op, 1, fmt),
+        'H1_T2_C1': (F, T2op, 1, fmt),
+        'H2_T1_C1': (V, T1op, 1, fmt),
+        'H2_T2_C1': (V, T2op, 1, fmt),
+        'H1_T2_C2': (F, T2op, 2, fmt),
+        'H2_T1_C2': (V, T1op, 2, fmt),
+        'H2_T2_C2': (V, T2op, 2, fmt)
     }
     slicedef = '\thc = mf.hc\n\tha = mf.ha\n\tpa = mf.pa\n\tpv = mf.pv\n\tc = mf.core\n\ta = mf.active\n\tv = mf.virt\n'
 
     with open('wicked_contractions.py', 'w') as f:
         f.write('import numpy as np\nimport time\n\n')
         for key in input_dict.keys():
-            code, nlines = make_nbody_elements(*input_dict[key], fmt='slice')
-            f.write('def ' + key + '(C1, C2, F, V, T1, T2, gamma1, eta1, lambda2, lambda3, mf, verbose=False):\n')
+            code, nlines = make_nbody_elements(*input_dict[key])
+            f.write('def ' + key + '(C1, C2, F, V, T1, T2, gamma1, eta1, lambda2, lambda3, mf, verbose=False, scale=1.0):\n')
             f.write('\t# ' + str(nlines) + ' lines\n')
             f.write('\tt0 = time.time()\n')
             if (key == 'H_T_C0'): f.write('\tC0 = .0j\n')

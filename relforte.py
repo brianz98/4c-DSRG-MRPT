@@ -19,9 +19,40 @@ def zero_mat(mat):
     mat[np.abs(mat) < 1e-12] = 0
     return mat
 
+def antisymmetrize_and_hermitize(T):
+    # antisymmetrize the residual
+    T += np.einsum("ijab->abij",T.conj()) # This is the Hermitized version (i.e., [H,A]), which should then be antisymmetrized
+    temp = T.copy()
+    T -= np.einsum("ijab->jiab", temp)
+    T += np.einsum("ijab->jiba", temp)
+    T -= np.einsum("ijab->ijba", temp)
+
+def compute_ht_h1_only(fixed_args, C1, C2, H1, T1, T2):
+    H1_T2_C2(None, C2, H1, None, None, T2, *fixed_args)
+    H1_T2_C1(C1, None, H1, None, None, T2, *fixed_args)
+    H1_T1_C1(C1, None, H1, None, T1, None, *fixed_args)
+    antisymmetrize_and_hermitize(C2)
+    C1 = C1 + C1.T.conj()
+
+def compute_ht(fixed_args, C1, C2, H1, H2, T1, T2):
+    H1_T1_C1(C1, None, H1, None, T1, None, *fixed_args)
+    H1_T2_C1(C1, None, H1, None, None, T2, *fixed_args)
+    H2_T1_C1(C1, None, None, H2, T1, None, *fixed_args)
+    H2_T2_C1(C1, None, None, H2, None, T2, *fixed_args)
+    H1_T2_C2(None, C2, H1, None, None, T2, *fixed_args)
+    H2_T1_C2(None, C2, None, H2, T1, None, *fixed_args)
+    H2_T2_C2(None, C2, None, H2, None, T2, *fixed_args)
+    antisymmetrize_and_hermitize(C2)
+    C1 = C1 + C1.T.conj()
+
+def compute_ht_c0(fixed_args, H1, H2, T1, T2):
+    C0 = H_T_C0(None, None, H1, H2, T1, T2, *fixed_args)
+    return C0
+
 def regularized_denominator(x, s):
-    if abs(x) <= MACHEPS:
-        return 0.0
+    z = np.sqrt(s) * x
+    if abs(z) <= MACHEPS:
+        return np.sqrt(s)*(z - z**3/2 + z**5/6)
     return (1. - np.exp(-s * x**2)) / x
 
 def set_bit(bit_loc):
@@ -993,14 +1024,14 @@ class RelForte:
             _hcore_cas = _hcore
             
         self.ncombs, self.det_strings = form_cas_determinant_strings(*self.cas)
-        self._cas_hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, ncore=self.ncore)
+        self.cas_hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, ncore=self.ncore)
 
         _t1 = time.time()
         
-        self.casci_eigvals, self.casci_eigvecs = np.linalg.eigh(self._cas_hamil)
+        self.casci_eigvals, self.casci_eigvecs = np.linalg.eigh(self.cas_hamil)
         _t2 = time.time()
                 
-        if (rdm_level>0):
+        if (rdm_level > 0):
             try:
                 assert rdm_level <= 3
             except AssertionError:
@@ -1010,16 +1041,19 @@ class RelForte:
             if (rdm_level>=1):
                 _psi = [self.casci_eigvecs[:,i] for i in self.state_avg]
                 _rdms['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
-                _gen_fock_canon = _hcore.copy() + np.einsum('piqi->pq',_eri[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri[:,self.active,:,self.active],_rdms['1rdm'])
-                self.fock = _gen_fock_canon
+                # J. Chem. Phys. 146, 124132 (2017), eq. 18
+                self.gen_fock_canon = _hcore.copy() + np.einsum('piqi->pq',_eri[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri[:,self.active,:,self.active],_rdms['1rdm'])
+                self.fock = self.gen_fock_canon
                 if (semi_canonicalize):
-                    _gen_fock_diag = np.zeros_like(_gen_fock_canon)
-                    _gen_fock_diag[self.core,self.core] = _gen_fock_canon[self.core,self.core]
-                    _gen_fock_diag[self.active,self.active] = _gen_fock_canon[self.active,self.active]
-                    _gen_fock_diag[self.virt,self.virt] = _gen_fock_canon[self.virt,self.virt]
-                    _, self.semicanonicalizer = np.linalg.eigh(_gen_fock_diag)
-                    self.gen_fock_semicanon = np.einsum('ip,ij,jq->pq',np.conj(self.semicanonicalizer), _gen_fock_canon, self.semicanonicalizer)
+                    _gen_fock_diag = np.zeros_like(self.gen_fock_canon)
+                    _gen_fock_diag[self.core,self.core] = self.gen_fock_canon[self.core,self.core]
+                    _gen_fock_diag[self.active,self.active] = self.gen_fock_canon[self.active,self.active]
+                    _gen_fock_diag[self.virt,self.virt] = self.gen_fock_canon[self.virt,self.virt]
+                    self.gen_fock_eigvals, self.semicanonicalizer = np.linalg.eigh(_gen_fock_diag)
+                    self.gen_fock_semicanon = np.einsum('ip,ij,jq->pq',np.conj(self.semicanonicalizer), self.gen_fock_canon, self.semicanonicalizer)
                     self.fock = self.gen_fock_semicanon
+                    self.F0 = np.diag(np.diag(self.fock))
+                    self.F1 = np.copy(self.fock - self.F0)
                     self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
                 else:
                     self.semicanonicalizer = np.diag((np.zeros(self.fock.shape[0],dtype='complex128')+1.0))
@@ -1115,12 +1149,16 @@ class RelForte:
         fdiag = np.real(np.diagonal(self.fock))
         self.d1 = np.zeros((self.nhole,self.npart),dtype='float64')
         self.d2 = np.zeros((self.nhole,self.nhole,self.npart,self.npart),dtype='float64')
+        self.delta1 = np.zeros((self.nhole,self.npart),dtype='float64')
+        self.delta2 = np.zeros((self.nhole,self.nhole,self.npart,self.npart),dtype='float64')
         for i in range(self.nhole):
             for k in range(self.npart):
                 self.d1[i,k] = regularized_denominator(fdiag[i]-fdiag[k+self.ncore], s)
+                self.delta1[i,k] = fdiag[i]-fdiag[k+self.ncore]
                 for j in range(self.nhole):
                     for l in range(self.npart):
                         self.d2[i,j,k,l] = regularized_denominator(fdiag[i]+fdiag[j]-fdiag[k+self.ncore]-fdiag[l+self.ncore], s)
+                        self.delta2[i,j,k,l] = fdiag[i]+fdiag[j]-fdiag[k+self.ncore]-fdiag[l+self.ncore]
                             
         self.denom_act = np.zeros((self.nact,self.nact),dtype='float64')
         for i in range(self.nact):
@@ -1136,7 +1174,309 @@ class RelForte:
                     for l in range(self.npart):
                         self.d2_exp[i,j,k,l] = np.exp(-s*(fdiag[i]+fdiag[j]-fdiag[k+self.ncore]-fdiag[l+self.ncore])**2)
 
+    def form_amplitudes(self, F, V):
+        T2 = V[self.hole,self.hole,self.part,self.part].copy() * self.d2
+        T2[self.ha,self.ha,self.pa,self.pa] = .0j
+
+        T1 = F[self.hole,self.part].copy()
+        T1 += np.einsum('xu,iuax,xu->ia', self.denom_act, T2[:,self.ha,:,self.pa],self.cumulants['gamma1'])
+        T1 *= self.d1
+        T1[self.ha,self.pa] = .0j
+
+        return T1, T2
+    
+    def run_dsrg_mrpt3(self, s, relativistic, relax=None, relax_convergence=1e-8, maxiter=20, pt2_only=False):
+        self.relax = relax
+        if (relativistic):           
+            _eri = self.dhf_eri_full_asym
+            _method = 'Relativistic'
+            _hcore = self.dhf_hcore_mo
+        else:
+            _eri = self.rhf_eri_full_asym
+            _method = 'Non-relativistic'
+            _hcore = self.rhf_hcore_spinorb
+
+        if (self.verbose):
+            print('')
+            print('='*47)
+            print('{:^47}'.format(f'{_method} DSRG-MRPT3'))
+            print('='*47)
+
+        _t0 = time.time()
+
+        if (relax is None):
+            nrelax = 0
+        elif (relax == 'once'):
+            nrelax = 1
+        elif (relax == 'twice'):
+            nrelax = 2
+        elif (relax == 'iterate'):
+            nrelax = maxiter
+        elif (type(relax) is int):
+            if (relax < 0):
+                raise Exception(f'Relax iteration must be positive!')
+            else:
+                nrelax = min(maxiter, relax)
+        else:
+            raise Exception(f'Relax option {relax} is not implemented yet!')
+        
+        self.relax_ref = nrelax > 0
+
+        _t2 = time.time()
+        self.converged = False
+        self.dsrg_mrpt3_update(s, _eri, pt2_only) # We need to do mrpt3 at least once
+        _verbose = self.verbose
+
+        if (nrelax > 0):
+            self.relax_energies = np.zeros((maxiter,3)) # [iter, [unrelaxed, relaxed, Eref]]
+            
+            self.verbose = False
+            if (_verbose):
+                print('-'*47)
+                print('{:^47}'.format(f'DSRG-MRPT3 reference relaxation'))
+                print('-'*47)
+                print('{:<30}{:<20}{:<10}'.format('Iter','Energy','Delta E'))
+                print(f'   -Eref  {self.e_casci:.7f}       ')
+                print(f'   -Ecorr {self.e_dsrg_mrpt3.real:.7f}       ')
+        else:
+            self.relax_energies = np.zeros((1,3))
+            self.relax_energies[0, 0] = self.e_dsrg_mrpt3.real+self.e_casci
+            self.relax_energies[0, 2] = self.e_casci
+        
+        for irelax in range(nrelax):
+            self.relax_energies[irelax, 0] = self.e_dsrg_mrpt3.real+self.e_casci
+            self.relax_energies[irelax, 2] = self.e_casci
+
+            if (_verbose): print('{:<30}{:<20}{:<10}'.format(f'<Psi^({irelax:d})|Hbar^({irelax:d})|Psi^({irelax:d})>',f'{self.e_dsrg_mrpt3.real+self.e_casci:.7f}',f'{self.relax_energies[irelax][0]-self.relax_energies[irelax-1][1]:.5e}'))
+
+            if (nrelax == 2 and irelax == 1): break
+            self.dsrg_mrpt3_reference_relaxation(_eri)
+            self.relax_energies[irelax, 1] = self.e_dsrg_mrpt3_relaxed
+            if (_verbose): print(f'   -Erelax{self.e_relax:.7f}       ')
+            if (_verbose): print('{:<30}{:<20}{:<10}'.format(f'<Psi^({irelax:d})|Hbar^({irelax+1:d})|Psi^({irelax:d})>',f'{self.e_dsrg_mrpt3_relaxed:.7f}',f'{self.relax_energies[irelax][1]-self.relax_energies[irelax][0]:.5e}'))
+            if (self.test_relaxation_convergence(irelax, relax_convergence)): break
+            if (nrelax == 1): break
+
+            _psi = [self.dsrg_mrpt3_relax_eigvecs[:,i] for i in self.state_avg]
+            self.rdms_canon['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+            self.rdms_canon['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+            self.rdms_canon['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+
+            _eri_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl',np.conjugate(self.semicanonicalizer),np.conjugate(self.semicanonicalizer),_eri,self.semicanonicalizer,self.semicanonicalizer,optimize='optimal')
+            _hcore_canon = np.einsum('ip,pq,jq->ij',np.conjugate(self.semicanonicalizer),_hcore,self.semicanonicalizer,optimize='optimal')
+            del _eri, _hcore
+
+            _gen_fock_canon = _hcore_canon.copy() + np.einsum('piqi->pq',_eri_canon[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri_canon[:,self.active,:,self.active],self.rdms_canon['1rdm'])
+
+            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype='complex128')
+            _gen_fock_diag[self.core,self.core] = _gen_fock_canon[self.core,self.core].copy()
+            _gen_fock_diag[self.active,self.active] = _gen_fock_canon[self.active,self.active].copy()
+            _gen_fock_diag[self.virt,self.virt] = _gen_fock_canon[self.virt,self.virt].copy()
+            _, self.semicanonicalizer = np.linalg.eigh(_gen_fock_diag)
+            self.gen_fock_semicanon = np.einsum('ip,ij,jq->pq',np.conj(self.semicanonicalizer), _gen_fock_canon, self.semicanonicalizer)
+            self.fock = self.gen_fock_semicanon
+            self.F0 = np.diag(np.diag(self.fock))
+            self.F1 = np.copy(self.fock - self.F0)
+            self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
+
+            self.rdms['1rdm'] = np.einsum('ip,ij,jq->pq', self.semicanonicalizer_active, self.rdms_canon['1rdm'], np.conj(self.semicanonicalizer_active), optimize='optimal')
+            self.rdms['2rdm'] = np.einsum('ip,jq,ijkl,kr,ls->pqrs', self.semicanonicalizer_active, self.semicanonicalizer_active, self.rdms_canon['2rdm'], np.conj(self.semicanonicalizer_active),np.conj(self.semicanonicalizer_active), optimize='optimal')
+            self.rdms['3rdm'] = np.einsum('ip,jq,kr,ijklmn,ls,mt,nu->pqrstu', self.semicanonicalizer_active, self.semicanonicalizer_active, self.semicanonicalizer_active, self.rdms_canon['3rdm'], np.conj(self.semicanonicalizer_active),np.conj(self.semicanonicalizer_active), np.conj(self.semicanonicalizer_active), optimize='optimal')
+            _eri_semican = np.einsum('ip,jq,ijkl,kr,ls->pqrs',np.conj(self.semicanonicalizer),np.conj(self.semicanonicalizer),_eri_canon,self.semicanonicalizer,self.semicanonicalizer,optimize='optimal')
+            _hcore_semican = np.einsum('ip,ij,jq->pq',np.conj(self.semicanonicalizer),_hcore_canon,self.semicanonicalizer,optimize='optimal')
+            _eri = _eri_semican
+            _hcore = _hcore_semican
+            del _eri_semican, _hcore_semican, _eri_canon, _hcore_canon
+
+            _Eref_test = self.nuclear_repulsion
+            _Eref_test += np.einsum('mm->',_hcore[self.core,self.core])
+            _Eref_test += 0.5 * np.einsum('mnmn->',_eri[self.core,self.core,self.core,self.core])
+            _Eref_test += np.einsum('mumv,uv->',_eri[self.core,self.active,self.core,self.active],self.rdms['1rdm'])
+            _Eref_test += np.einsum('uv,uv->',_hcore[self.active,self.active],self.rdms['1rdm'])
+            _Eref_test += 0.25 * np.einsum('uvxy,uvxy->',_eri[self.active,self.active,self.active,self.active],self.rdms['2rdm'])
+
+            self.e_casci = _Eref_test.real
+            if (_verbose): print(f'   -Eref  {self.e_casci:.7f}       ')
+            
+            self.dsrg_mrpt3_update(s, _eri, pt2_only)
+            if (_verbose): print(f'   -Ecorr {self.e_dsrg_mrpt3.real:.7f}       ')
+            
+        self.verbose = _verbose
+
+        _t3 = time.time()
+
+        try:
+            assert(abs(self.e_dsrg_mrpt3.imag) < MACHEPS)
+        except AssertionError:
+            print(f'Imaginary part of DSRG-MRPT3 energy, {self.e_dsrg_mrpt3.imag} is larger than {MACHEPS}')
+        
+        self.e_dsrg_mrpt3 = self.e_dsrg_mrpt3.real
+
+        _t1 = time.time()
+
+        if (self.verbose):
+            print(f'Unrelaxed DSRG-MRPT3 energy:           {self.relax_energies[0][0]:15.7f} Eh')
+            print(f'Unrelaxed DSRG-MRPT3 E_corr:           {self.relax_energies[0][0]-self.relax_energies[0][2]:15.7f} Eh')
+            self.e_dsrg_mrpt3_unrelaxed = self.relax_energies[0][0]
+            self.e_dsrg_mrpt3 = self.e_dsrg_mrpt3_unrelaxed
+            if (nrelax > 0):
+                print(f'Partially relaxed DSRG-MRPT3 energy:   {self.relax_energies[0][1]:15.7f} Eh')
+                print(f'Partially relaxed DSRG-MRPT3 E_corr:   {self.relax_energies[0][1]-self.relax_energies[0][2]:15.7f} Eh')
+                self.e_dsrg_mrpt3_partially_relaxed = self.relax_energies[0][1]
+                self.e_dsrg_mrpt3 = self.e_dsrg_mrpt3_partially_relaxed
+            if (nrelax > 1):
+                print(f'Relaxed DSRG-MRPT3 energy:             {self.relax_energies[1][0]:15.7f} Eh')
+                print(f'Relaxed DSRG-MRPT3 E_corr:             {self.relax_energies[1][0]-self.relax_energies[1][2]:15.7f} Eh')
+                self.e_dsrg_mrpt3_relaxed = self.relax_energies[1][0]
+                self.e_dsrg_mrpt3 = self.e_dsrg_mrpt3_relaxed
+            if (nrelax > 2):
+                print(f'Fully relaxed DSRG-MRPT3 energy:       {self.relax_energies[irelax][0]:15.7f} Eh')
+                print(f'Fully relaxed DSRG-MRPT3 E_corr:       {self.relax_energies[irelax][0]-self.relax_energies[irelax][2]:15.7f} Eh')
+                self.e_dsrg_mrpt3_fully_relaxed = self.relax_energies[irelax][0]
+                self.e_dsrg_mrpt3 = self.e_dsrg_mrpt3_fully_relaxed
+
+            if (len(self.state_avg) > 1):
+                print_energies(np.real(self.dsrg_mrpt3_relax_eigvals_shifted[self.state_avg]))
+            print(f'Time taken:                  {_t1-_t0:15.7f} s')
+            print('='*47)
+    
+    def compute_energy_pt3_1(self):
+        fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
+
+        self.H0A1_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
+        self.H0A1_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype='complex128')
+        H1_T2_C2(None, self.H0A1_2b, self.F0, None, None, self.T2_1, *fixed_args)
+        H1_T2_C1(self.H0A1_1b, None, self.F0, None, None, self.T2_1, *fixed_args)
+        H1_T1_C1(self.H0A1_1b, None, self.F0, None, self.T1_1, None, *fixed_args)
+        antisymmetrize_and_hermitize(self.H0A1_2b)
+        self.H0A1_1b += self.H0A1_1b.T.conj()
+
+        H0A1A1_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
+        H0A1A1_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype='complex128')
+
+        H1_T1_C1(H0A1A1_1b, None,      self.H0A1_1b, None,    self.T1_1, None,    *fixed_args)
+        H1_T2_C1(H0A1A1_1b, None,      self.H0A1_1b, None,    None,    self.T2_1, *fixed_args)
+        H2_T1_C1(H0A1A1_1b, None,      None,    self.H0A1_2b, self.T1_1, None,    *fixed_args)
+        H2_T2_C1(H0A1A1_1b, None,      None,    self.H0A1_2b, None,    self.T2_1, *fixed_args)
+        H1_T2_C2(None,      H0A1A1_2b, self.H0A1_1b, None,    None,    self.T2_1, *fixed_args)
+        H2_T1_C2(None,      H0A1A1_2b, None,    self.H0A1_2b, self.T1_1, None,    *fixed_args)
+        H2_T2_C2(None,      H0A1A1_2b, None,    self.H0A1_2b, None,    self.T2_1, *fixed_args)
+        antisymmetrize_and_hermitize(H0A1A1_2b)
+        H0A1A1_1b += H0A1A1_1b.T.conj()
+
+        self.e_dsrg_mrpt3_1 = (-1./6) * H_T_C0(None, None, H0A1A1_1b, H0A1A1_2b, self.T1_1, self.T2_1, *fixed_args)
+
+        if (self.relax_ref):
+            H_T_C1_aa(self.hbar1, None, H0A1A1_1b, H0A1A1_2b, self.T1_1, self.T2_1, *fixed_args, scale=-1./12)
+            H_T_C2_aaaa(None, self.hbar2, H0A1A1_1b, H0A1A1_2b, self.T1_1, self.T2_1, *fixed_args, scale=-1./12)
+
+        del H0A1A1_1b, H0A1A1_2b
+
+    def compute_energy_pt2(self, eri):
+        fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
+        self.F_1_tilde = np.zeros(self.fock.shape, dtype='complex128')
+        self.F_1_tilde[self.hole,self.part] = np.copy(self.fock[self.hole,self.part].conj())
+        self.F_1_tilde[self.hole,self.part] += self.F_1_tilde[self.hole,self.part] * self.d1_exp
+        self.F_1_tilde[self.hole,self.part] += np.multiply(self.d1_exp, np.einsum('xu,iuax,xu->ia',self.denom_act,self.T2_1[:,self.ha,:,self.pa],self.cumulants['gamma1']))
+        self.F_1_tilde = np.conj(self.F_1_tilde).T
+
+        self.V_1_tilde = np.zeros(eri.shape, dtype='complex128')
+        self.V_1_tilde[self.hole,self.hole,self.part,self.part] = eri[self.hole,self.hole,self.part,self.part].copy()
+        self.V_1_tilde[self.hole,self.hole,self.part,self.part] += self.V_1_tilde[self.hole,self.hole,self.part,self.part] * self.d2_exp
+        self.V_1_tilde = np.einsum('ijab->abij',self.V_1_tilde)
+
+        self.e_dsrg_mrpt2 = H_T_C0(None, None, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, *fixed_args)
+
+        if (self.relax_ref):
+            H_T_C1_aa(self.hbar1, None, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, *fixed_args, scale=0.5)
+            H_T_C2_aaaa(None, self.hbar2, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, *fixed_args, scale=0.5)
+
+    def compute_energy_pt3_2(self, eri):
+        fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
+        Htilde1_1b = self.H0A1_1b + 2*self.F1.conj()
+        Htilde1_2b = self.H0A1_2b + 2*eri.conj()
+
+        self.Htilde1A1_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
+        self.Htilde1A1_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype='complex128')
+
+        H1_T1_C1(self.Htilde1A1_1b, None, Htilde1_1b, None,          self.T1_1, None,    *fixed_args)
+        H1_T2_C1(self.Htilde1A1_1b, None, Htilde1_1b, None,          None,    self.T2_1, *fixed_args)
+        H2_T1_C1(self.Htilde1A1_1b, None, None, Htilde1_2b, self.T1_1, None,    *fixed_args)
+        H2_T2_C1(self.Htilde1A1_1b, None, None, Htilde1_2b, None,    self.T2_1, *fixed_args)
+        H1_T2_C2(None, self.Htilde1A1_2b, Htilde1_1b, None,          None,    self.T2_1, *fixed_args)
+        H2_T1_C2(None, self.Htilde1A1_2b, None, Htilde1_2b, self.T1_1, None,    *fixed_args)
+        H2_T2_C2(None, self.Htilde1A1_2b, None, Htilde1_2b, None,    self.T2_1, *fixed_args)
+        antisymmetrize_and_hermitize(self.Htilde1A1_2b)
+        self.Htilde1A1_1b += self.Htilde1A1_1b.T.conj()
+        self.T1_2, self.T2_2 = self.form_amplitudes(0.5*self.Htilde1A1_1b, 0.5*self.Htilde1A1_2b)
+        self.e_dsrg_mrpt3_2 = H_T_C0(None, None, Htilde1_1b, Htilde1_2b, self.T1_2, self.T2_2, *fixed_args)
+
+        if (self.relax_ref):
+            H_T_C1_aa(self.hbar1, None, Htilde1_1b, Htilde1_2b, self.T1_2, self.T2_2, *fixed_args, scale=0.5)
+            H_T_C2_aaaa(None, self.hbar2, Htilde1_1b, Htilde1_2b, self.T1_2, self.T2_2, *fixed_args, scale=0.5)
+
+        del Htilde1_1b, Htilde1_2b
+
+    def compute_energy_pt3_3(self):
+        fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
+
+        H0A2_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
+        H0A2_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype='complex128')
+        H1_T2_C2(None, H0A2_2b, self.F0, None, None, self.T2_2, *fixed_args)
+        H1_T2_C1(H0A2_1b, None, self.F0, None, None, self.T2_2, *fixed_args)
+        H1_T1_C1(H0A2_1b, None, self.F0, None, self.T1_2, None, *fixed_args)
+        antisymmetrize_and_hermitize(H0A2_2b)
+        H0A2_1b += H0A2_1b.T.conj()
+
+        Hbar2_1b = H0A2_1b + 0.5*self.Htilde1A1_1b
+        Hbar2_2b = H0A2_2b + 0.5*self.Htilde1A1_2b
+
+        self.e_dsrg_mrpt3_3 = H_T_C0(None, None, Hbar2_1b, Hbar2_2b, self.T1_1, self.T2_1, *fixed_args)
+
+        if (self.relax_ref):
+            H_T_C1_aa(self.hbar1, None, Hbar2_1b, Hbar2_2b, self.T1_1, self.T2_1, *fixed_args, scale=0.5)
+            H_T_C2_aaaa(None, self.hbar2, Hbar2_1b, Hbar2_2b, self.T1_1, self.T2_1, *fixed_args, scale=0.5)
+
+        del H0A2_1b, H0A2_2b, Hbar2_1b, Hbar2_2b
+
+    def renormalize_F(self, H1, T2):
+        F_1_tilde = H1[self.hole,self.part].copy()
+        F_1_tilde += F_1_tilde * self.d1_exp
+        F_1_tilde += np.multiply(self.d1_exp, np.einsum('xu,iuax,xu->ia',self.denom_act,T2[:,self.ha,:,self.pa],self.cumulants['gamma1']))
+        return F_1_tilde
+    
+    def renormalize_V(self, H2):
+        V_1_tilde = H2[self.hole,self.hole,self.part,self.part].copy()
+        V_1_tilde += V_1_tilde * self.d2_exp
+        return V_1_tilde
+
+    def dsrg_mrpt3_update(self, s, eri, pt2_only):
+        if (self.relax_ref):
+            self.hbar1 = np.zeros((self.nact,self.nact),dtype='complex128')
+            self.hbar2 = np.zeros((self.nact,self.nact,self.nact,self.nact),dtype='complex128')
+
+        self.cumulants = make_cumulants(self.rdms)
+        self.form_denominators(s)
+        self.T1_1, self.T2_1 = self.form_amplitudes(self.fock.conj(), eri.conj())
+
+        self.e_dsrg_mrpt3_1 = self.e_dsrg_mrpt2 = self.e_dsrg_mrpt3_2 = self.e_dsrg_mrpt3_3 = .0j
+
+        if (not pt2_only):
+            self.compute_energy_pt3_1()
+        self.compute_energy_pt2(eri)
+        if (not pt2_only):
+            self.compute_energy_pt3_2(eri)
+            self.compute_energy_pt3_3()
+
+        self.e_dsrg_mrpt3 = self.e_dsrg_mrpt3_1 + self.e_dsrg_mrpt2 + self.e_dsrg_mrpt3_2 + self.e_dsrg_mrpt3_3
+
     def run_dsrg_mrpt2(self, s, relativistic, relax=None, relax_convergence=1e-8, maxiter=20):
+        """
+        Tensor storage convention follows that of 10.1021/acs.jctc.5b00134, i.e.,
+        F_a^i = <a|f|i>
+        H_{ab}^{ij} = <ab|H|ij>
+        gamma1_a^i = <Phi|i+ a|Phi> (!)
+        """
         self.relax = relax
         if (relativistic):
             _eri = self.dhf_eri_full_asym
@@ -1170,7 +1510,7 @@ class RelForte:
                 nrelax = min(maxiter, relax)
         else:
             raise Exception(f'Relax option {relax} is not implemented yet!')
-
+        
         _t2 = time.time()
         self.converged = False
         self.dsrg_mrpt2_update(s, _eri) # We need to do mrpt2 at least once
@@ -1304,7 +1644,7 @@ class RelForte:
                 self.converged = True
 
         return self.converged
-
+    
     def dsrg_mrpt2_update(self, s, _eri):
         self.cumulants = make_cumulants(self.rdms)
         self.form_denominators(s)
@@ -1332,6 +1672,33 @@ class RelForte:
         # but since the exp part is real, we can cancel out the two conjugations.
 
         self.e_dsrg_mrpt2 = dsrg_HT(self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
+
+    def dsrg_mrpt3_reference_relaxation(self, _eri):
+        self.hbar1 += self.hbar1.T.conj()
+        self.hbar1 += self.fock[self.active,self.active]
+
+        antisymmetrize_and_hermitize(self.hbar2)
+        self.hbar2 += _eri[self.active,self.active,self.active,self.active]
+
+        self.relax_e_scalar = -np.einsum('uv,uv->', self.hbar1, self.cumulants['gamma1']) - 0.25*np.einsum('uvxy,uvxy->',self.hbar2,self.rdms['2rdm']) + np.einsum('uvxy,ux,vy->',self.hbar2,self.cumulants['gamma1'],self.cumulants['gamma1'])
+
+        self.hbar1 -= np.einsum('uxvy,xy->uv',self.hbar2,self.cumulants['gamma1'])
+
+        self.hbar1_canon = np.einsum('ip,pq,jq->ij', np.conj(self.semicanonicalizer_active), self.hbar1, (self.semicanonicalizer_active), optimize='optimal')
+        self.hbar2_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl', np.conj(self.semicanonicalizer_active), np.conj(self.semicanonicalizer_active), self.hbar2, (self.semicanonicalizer_active),(self.semicanonicalizer_active), optimize='optimal')
+
+        _ref_relax_hamil = form_cas_hamiltonian(self.hbar1_canon, self.hbar2_canon, self.det_strings, self.verbose, self.cas)
+        self.dsrg_mrpt3_relax_eigvals, self.dsrg_mrpt3_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
+
+        self.e_relax = (np.dot(self.dsrg_mrpt3_relax_eigvals[self.state_avg], self.sa_weights) + self.relax_e_scalar)
+        try:
+            assert(abs(self.e_relax.imag) < MACHEPS)
+        except AssertionError:
+            print(f'Imaginary part of DSRG-MRPT3 relaxation energy, {self.e_relax.imag} is larger than {MACHEPS}')
+        self.e_relax = self.e_relax.real
+        
+        self.e_dsrg_mrpt3_relaxed = (self.e_casci + self.e_dsrg_mrpt3 + self.e_relax).real
+        self.dsrg_mrpt3_relax_eigvals_shifted = (self.e_casci + self.e_dsrg_mrpt3 + self.dsrg_mrpt3_relax_eigvals + self.relax_e_scalar)
 
     def dsrg_mrpt2_reference_relaxation(self, _eri):
         _hbar2 = _eri[self.active,self.active,self.active,self.active].copy()
