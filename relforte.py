@@ -1675,14 +1675,18 @@ class RelForte:
 
     def dsrg_mrpt3_reference_relaxation(self, _eri):
         self.hbar1 += self.hbar1.T.conj()
-        self.hbar1 += self.fock[self.active,self.active]
+        self.hbar1 += self.fock[self.active,self.active].conj()
 
         antisymmetrize_and_hermitize(self.hbar2)
-        self.hbar2 += _eri[self.active,self.active,self.active,self.active]
+        self.hbar2 += _eri[self.active,self.active,self.active,self.active].conj()
 
-        self.relax_e_scalar = -np.einsum('uv,uv->', self.hbar1, self.cumulants['gamma1']) - 0.25*np.einsum('uvxy,uvxy->',self.hbar2,self.rdms['2rdm']) + np.einsum('uvxy,ux,vy->',self.hbar2,self.cumulants['gamma1'],self.cumulants['gamma1'])
+        self.relax_e_scalar = -np.einsum('vu,uv->', self.hbar1, self.cumulants['gamma1']) - 0.25*np.einsum('xyuv,uvxy->',self.hbar2,self.rdms['2rdm']) + np.einsum('xyuv,ux,vy->',self.hbar2,self.cumulants['gamma1'],self.cumulants['gamma1'])
 
-        self.hbar1 -= np.einsum('uxvy,xy->uv',self.hbar2,self.cumulants['gamma1'])
+        self.hbar1 -= np.einsum('uyvx,xy->uv',self.hbar2,self.cumulants['gamma1'])
+
+        # For now, all things to do with CASCI are in the physicist's notation
+        self.hbar1 = np.conjugate(self.hbar1)
+        self.hbar2 = np.conjugate(self.hbar2)
 
         self.hbar1_canon = np.einsum('ip,pq,jq->ij', np.conj(self.semicanonicalizer_active), self.hbar1, (self.semicanonicalizer_active), optimize='optimal')
         self.hbar2_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl', np.conj(self.semicanonicalizer_active), np.conj(self.semicanonicalizer_active), self.hbar2, (self.semicanonicalizer_active),(self.semicanonicalizer_active), optimize='optimal')
