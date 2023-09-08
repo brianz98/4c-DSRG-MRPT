@@ -1288,14 +1288,14 @@ class RelForte:
             _hcore = _hcore_semican
             del _eri_semican, _hcore_semican, _eri_canon, _hcore_canon
 
-            _Eref_test = self.nuclear_repulsion
-            _Eref_test += np.einsum('mm->',_hcore[self.core,self.core])
-            _Eref_test += 0.5 * np.einsum('mnmn->',_eri[self.core,self.core,self.core,self.core])
-            _Eref_test += np.einsum('mumv,uv->',_eri[self.core,self.active,self.core,self.active],self.rdms['1rdm'])
-            _Eref_test += np.einsum('uv,uv->',_hcore[self.active,self.active],self.rdms['1rdm'])
-            _Eref_test += 0.25 * np.einsum('uvxy,uvxy->',_eri[self.active,self.active,self.active,self.active],self.rdms['2rdm'])
+            self.e_casci = self.nuclear_repulsion
+            self.e_casci += np.einsum('mm->',_hcore[self.core,self.core])
+            self.e_casci += 0.5 * np.einsum('mnmn->',_eri[self.core,self.core,self.core,self.core])
+            self.e_casci += np.einsum('mumv,uv->',_eri[self.core,self.active,self.core,self.active],self.rdms['1rdm'])
+            self.e_casci += np.einsum('uv,uv->',_hcore[self.active,self.active],self.rdms['1rdm'])
+            self.e_casci += 0.25 * np.einsum('uvxy,uvxy->',_eri[self.active,self.active,self.active,self.active],self.rdms['2rdm'])
 
-            self.e_casci = _Eref_test.real
+            self.e_casci = self.e_casci.real
             if (_verbose): print(f'   -Eref  {self.e_casci:.7f}       ')
             
             self.dsrg_mrpt3_update(s, _eri, pt2_only)
@@ -1341,6 +1341,7 @@ class RelForte:
             print('='*47)
     
     def compute_energy_pt3_1(self):
+        t0 = time.time()
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
 
         self.H0A1_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
@@ -1371,8 +1372,11 @@ class RelForte:
             H_T_C2_aaaa(None, self.hbar2, H0A1A1_1b, H0A1A1_2b, self.T1_1, self.T2_1, *fixed_args, scale=-1./12)
 
         del H0A1A1_1b, H0A1A1_2b
+        t1 = time.time()
+        if (self.verbose): print(f'... compute_energy_pt3_1: {t1-t0:15.7f} s')
 
     def compute_energy_pt2(self, eri):
+        t0 = time.time()
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
         self.F_1_tilde = np.zeros(self.fock.shape, dtype='complex128')
         self.F_1_tilde[self.hole,self.part] = np.copy(self.fock[self.hole,self.part].conj())
@@ -1391,7 +1395,11 @@ class RelForte:
             H_T_C1_aa(self.hbar1, None, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, *fixed_args, scale=0.5)
             H_T_C2_aaaa(None, self.hbar2, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, *fixed_args, scale=0.5)
 
+        t1 = time.time()
+        if (self.verbose): print(f'... compute_energy_pt2: {t1-t0:15.7f} s')
+
     def compute_energy_pt3_2(self, eri):
+        t0 = time.time()
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
         Htilde1_1b = self.H0A1_1b + 2*self.F1.conj()
         Htilde1_2b = self.H0A1_2b + 2*eri.conj()
@@ -1417,7 +1425,11 @@ class RelForte:
 
         del Htilde1_1b, Htilde1_2b
 
+        t1 = time.time()
+        if (self.verbose): print(f'... compute_energy_pt3_2: {t1-t0:15.7f} s')
+
     def compute_energy_pt3_3(self):
+        t0 = time.time()
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
 
         H0A2_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
@@ -1438,6 +1450,9 @@ class RelForte:
             H_T_C2_aaaa(None, self.hbar2, Hbar2_1b, Hbar2_2b, self.T1_1, self.T2_1, *fixed_args, scale=0.5)
 
         del H0A2_1b, H0A2_2b, Hbar2_1b, Hbar2_2b
+
+        t1 = time.time()
+        if (self.verbose): print(f'... compute_energy_pt3_3: {t1-t0:15.7f} s')
 
     def renormalize_F(self, H1, T2):
         F_1_tilde = H1[self.hole,self.part].copy()
@@ -1575,14 +1590,14 @@ class RelForte:
             _hcore = _hcore_semican
             del _eri_semican, _hcore_semican, _eri_canon, _hcore_canon
 
-            _Eref_test = self.nuclear_repulsion
-            _Eref_test += np.einsum('mm->',_hcore[self.core,self.core])
-            _Eref_test += 0.5 * np.einsum('mnmn->',_eri[self.core,self.core,self.core,self.core])
-            _Eref_test += np.einsum('mumv,uv->',_eri[self.core,self.active,self.core,self.active],self.rdms['1rdm'])
-            _Eref_test += np.einsum('uv,uv->',_hcore[self.active,self.active],self.rdms['1rdm'])
-            _Eref_test += 0.25 * np.einsum('uvxy,uvxy->',_eri[self.active,self.active,self.active,self.active],self.rdms['2rdm'])
+            self.e_casci = self.nuclear_repulsion
+            self.e_casci += np.einsum('mm->',_hcore[self.core,self.core])
+            self.e_casci += 0.5 * np.einsum('mnmn->',_eri[self.core,self.core,self.core,self.core])
+            self.e_casci += np.einsum('mumv,uv->',_eri[self.core,self.active,self.core,self.active],self.rdms['1rdm'])
+            self.e_casci += np.einsum('uv,uv->',_hcore[self.active,self.active],self.rdms['1rdm'])
+            self.e_casci += 0.25 * np.einsum('uvxy,uvxy->',_eri[self.active,self.active,self.active,self.active],self.rdms['2rdm'])
 
-            self.e_casci = _Eref_test.real
+            self.e_casci = self.e_casci.real
             if (_verbose): print(f'   -Eref  {self.e_casci:.7f}       ')
             
             self.dsrg_mrpt2_update(s, _eri)
