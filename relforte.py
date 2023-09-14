@@ -1890,10 +1890,10 @@ class RelForte:
 
     def rel_read_eri(self, eriread):
         _t0 = time.time()
-        npzfile = np.load(eriread)
-        self.e_frozen = npzfile['e_frozen']
-        self.dhf_hcore_mo = npzfile['dhf_hcore_mo']
-        self.dhf_eri_full_asym = npzfile['dhf_eri_full_asym']
+        with np.load(eriread) as npzfile:
+            self.e_frozen = npzfile['e_frozen']
+            self.dhf_hcore_mo = npzfile['dhf_hcore_mo']
+            self.dhf_eri_full_asym = npzfile['dhf_eri_full_asym']
 
         self.nuclear_repulsion += self.e_frozen
         _t1 = time.time()
