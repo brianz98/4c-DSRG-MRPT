@@ -10,6 +10,7 @@ import os, glob
 import warnings
 from contractions import *
 from wicked_contractions import *
+import gc
 
 MACHEPS = 1e-9
 EH_TO_WN = 219474.63
@@ -1372,6 +1373,8 @@ class RelForte:
             H_T_C2_aaaa(None, self.hbar2, H0A1A1_1b, H0A1A1_2b, self.T1_1, self.T2_1, *fixed_args, scale=-1./12)
 
         del H0A1A1_1b, H0A1A1_2b
+
+        gc.collect()
         t1 = time.time()
         if (self.verbose): print(f'... compute_energy_pt3_1: {t1-t0:15.7f} s')
 
@@ -1395,6 +1398,7 @@ class RelForte:
             H_T_C1_aa(self.hbar1, None, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, *fixed_args, scale=0.5)
             H_T_C2_aaaa(None, self.hbar2, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, *fixed_args, scale=0.5)
 
+        gc.collect()
         t1 = time.time()
         if (self.verbose): print(f'... compute_energy_pt2: {t1-t0:15.7f} s')
 
@@ -1425,6 +1429,7 @@ class RelForte:
 
         del Htilde1_1b, Htilde1_2b
 
+        gc.collect()
         t1 = time.time()
         if (self.verbose): print(f'... compute_energy_pt3_2: {t1-t0:15.7f} s')
 
@@ -1451,6 +1456,7 @@ class RelForte:
 
         del H0A2_1b, H0A2_2b, Hbar2_1b, Hbar2_2b
 
+        gc.collect()
         t1 = time.time()
         if (self.verbose): print(f'... compute_energy_pt3_3: {t1-t0:15.7f} s')
 
@@ -1484,6 +1490,7 @@ class RelForte:
             self.compute_energy_pt3_3()
 
         self.e_dsrg_mrpt3 = self.e_dsrg_mrpt3_1 + self.e_dsrg_mrpt2 + self.e_dsrg_mrpt3_2 + self.e_dsrg_mrpt3_3
+        gc.collect()
 
     def run_dsrg_mrpt2(self, s, relativistic, relax=None, relax_convergence=1e-8, maxiter=20):
         """
