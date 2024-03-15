@@ -1,4 +1,4 @@
-import pyscf
+import pyscf, pyscf.mcscf
 from pyscf import mp, mcscf
 import numpy as np
 import h5py
@@ -227,14 +227,14 @@ def sph_to_spinor(mol, coeffs):
     
     return mo_rot, rotmat
 
-def form_cas_hamiltonian(H1body, H2body, det_strings, verbose, cas, ncore=0):
+def form_cas_hamiltonian(H1body, H2body, det_strings, verbose, cas, dtype, ncore=0):
     ncombs = len(det_strings)
     _mem = ncombs**2*16/1e9
     if (_mem < 1.0):
         if (verbose): print(f'Will now allocate {_mem*1000:.3f} MB memory for the CASCI Hamiltonian!')
     else:
         if (verbose): print(f'Will now allocate {_mem:.3f} GB memory for the CASCI Hamiltonian!')
-    _hamil_det = np.zeros((ncombs,ncombs), dtype='complex128')
+    _hamil_det = np.zeros((ncombs,ncombs), dtype=dtype)
     for i in range(ncombs):
         for j in range(i+1):
             exlvl = get_excitation_level(det_strings[i], det_strings[j])
@@ -265,7 +265,7 @@ def get_hamil_element(f0, f1, H1body, H2body, cas, ncore=0):
     """
     <f0|H|f1>
     """
-    _hmatel = 0.0j
+    _hmatel = 0.0
     exlvl = get_excitation_level(f0, f1)
     if (exlvl <= 2):
         if (exlvl == 0):
@@ -313,27 +313,27 @@ def form_cas_determinant_strings_general(occlist, actlist, nelec):
 
     return ncombs, det_strings
 
-def get_1_rdm_sa(det_strings, cas, states, weights, verbose):
-    _sa_rdm = np.zeros((cas[1],cas[1]), dtype='complex128')
+def get_1_rdm_sa(det_strings, cas, states, weights, verbose, dtype):
+    _sa_rdm = np.zeros((cas[1],cas[1]), dtype=dtype)
     for i in range(len(weights)):
-        _sa_rdm += weights[i] * get_1_rdm(det_strings, cas, states[i], verbose)
+        _sa_rdm += weights[i] * get_1_rdm(det_strings, cas, states[i], verbose, dtype)
     return _sa_rdm
 
-def get_2_rdm_sa(det_strings, cas, states, weights, verbose):
-    _sa_rdm = np.zeros((cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+def get_2_rdm_sa(det_strings, cas, states, weights, verbose, dtype):
+    _sa_rdm = np.zeros((cas[1],cas[1],cas[1],cas[1]), dtype=dtype)
     for i in range(len(weights)):
-        _sa_rdm += weights[i] * get_2_rdm(det_strings, cas, states[i], verbose)
+        _sa_rdm += weights[i] * get_2_rdm(det_strings, cas, states[i], verbose, dtype)
     return _sa_rdm
 
-def get_3_rdm_sa(det_strings, cas, states, weights, verbose):
-    _sa_rdm = np.zeros((cas[1],cas[1],cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+def get_3_rdm_sa(det_strings, cas, states, weights, verbose, dtype):
+    _sa_rdm = np.zeros((cas[1],cas[1],cas[1],cas[1],cas[1],cas[1]), dtype=dtype)
     for i in range(len(weights)):
-        _sa_rdm += weights[i] * get_3_rdm(det_strings, cas, states[i], verbose)
+        _sa_rdm += weights[i] * get_3_rdm(det_strings, cas, states[i], verbose, dtype)
     return _sa_rdm
 
-def get_1_rdm(det_strings, cas, psi, verbose):
+def get_1_rdm(det_strings, cas, psi, verbose, dtype):
     _t0 = time.time()
-    _rdm = np.zeros((cas[1],cas[1]), dtype='complex128')
+    _rdm = np.zeros((cas[1],cas[1]), dtype=dtype)
     for i in range(len(det_strings)):
         occ_vec = bstring_to_occ_vec(det_strings[i], *cas)
         contrib = np.conjugate(psi[i])*psi[i]
@@ -347,9 +347,9 @@ def get_1_rdm(det_strings, cas, psi, verbose):
     if (verbose): print(f'Time taken for 1-RDM build:  {(_t1-_t0):15.7f} s')
     return _rdm
 
-def get_2_rdm(det_strings, cas, psi, verbose):
+def get_2_rdm(det_strings, cas, psi, verbose, dtype):
     _t0 = time.time()
-    _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+    _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1]), dtype=dtype)
     if (cas[0] < 2): return _rdm
     for i in range(len(det_strings)):
         # <p+ q+ q p>
@@ -391,12 +391,12 @@ def get_2_rdm(det_strings, cas, psi, verbose):
     if (verbose): print(f'Time taken for 2-RDM build:  {(_t1-_t0):15.7f} s')
     return _rdm
 
-def get_3_rdm(det_strings, cas, psi, verbose):
+def get_3_rdm(det_strings, cas, psi, verbose, dtype):
     """
     gamma3^{pqr}_{stu} = <p+ q+ r+ u t s>
     """
     _t0 = time.time()
-    _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1],cas[1],cas[1]), dtype='complex128')
+    _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1],cas[1],cas[1]), dtype=dtype)
     if (cas[0] < 3): return _rdm
     for i in range(len(det_strings)):
         occ_vec = bstring_to_occ_vec(det_strings[i], *cas)
@@ -672,7 +672,7 @@ def print_energies(energies, nstates=None, splitting=True):
         print('{:<10}{:<20}{:<20}{:<20}{:<20}'.format(f'{istate:d}',f'{energies[istate]:+.7e}',f'{splitting:+.7e}',f'{splitting*EH_TO_WN:+.7e}',f'{splitting*EH_TO_EV*1000:+.7e}'))
 
 class RelForte:
-    def __init__(self, mol, mf=None, c0=None, verbose=True, density_fitting=False, decontract=False):
+    def __init__(self, mol, complex=True, mc=None, c0=None, verbose=True, density_fitting=False, decontract=False):
         if (type(density_fitting) is bool):
             self.density_fitting = density_fitting
             self.df_basis = None
@@ -691,53 +691,58 @@ class RelForte:
         self.nlrg = self.mol.nao*2
         self.nvirtual = self.nlrg - self.nocc
         self.verbose = verbose
-        self.mf = mf
+        self.mc = mc
+        self.dtype = 'complex128' if complex else 'float64'
         if (c0 is None):
             self.c0 = pyscf.lib.param.LIGHT_SPEED
         else:
             self.c0 = c0
             #pyscf.lib.param.LIGHT_SPEED = c0
-        
-    def run_rhf(self, transform=False, debug=True, frozen=None, dump_mo_coeff=None):
+
+    def run_rhf(self, mf_in=None, transform=False, debug=True, frozen=None, dump_mo_coeff=None):
         _ti = time.time()
         if (self.verbose):
             print('='*47)
             print('{:^47}'.format('PySCF RHF interface'))
             print('='*47)
 
-        if (self.density_fitting):
-            if (self.verbose): print('{:#^47}'.format('Enabling density fitting!')) 
-            self.rhf = pyscf.scf.RHF(self.mol).density_fit() if self.df_basis is None else pyscf.scf.RHF(self.mol).density_fit(self.df_basis)
+        if mf_in is not None:
+            self.mf_energy = mf_in.e_tot
+            self.mo_coeff = mf_in.mo_coeff
         else:
-            self.rhf = pyscf.scf.RHF(self.mol)
+            if (self.density_fitting):
+                if (self.verbose): print('{:#^47}'.format('Enabling density fitting!')) 
+                self.rhf = pyscf.scf.RHF(self.mol).density_fit() if self.df_basis is None else pyscf.scf.RHF(self.mol).density_fit(self.df_basis)
+            else:
+                self.rhf = pyscf.scf.RHF(self.mol)
 
-        self.rhf_energy = self.rhf.kernel()
+            self.mf_energy = self.rhf.kernel()
 
-        if (self.verbose): print(f"Non-relativistic RHF Energy: {self.rhf_energy:15.7f} Eh")
+            if (self.verbose): print(f"Non-relativistic RHF Energy: {self.mf_energy:15.7f} Eh")
 
-        if (dump_mo_coeff is not None):
-            if dump_mo_coeff != False:
-                if type(dump_mo_coeff) is str:
-                    _fname = dump_mo_coeff
-                else:
-                    _fname = 'mo_coeff'
-                if (self.verbose): print(f'Dumping MO coefficients to {_fname}')
-                np.save(_fname, self.rhf.mo_coeff)
-
+            if (dump_mo_coeff is not None):
+                if dump_mo_coeff != False:
+                    if type(dump_mo_coeff) is str:
+                        _fname = dump_mo_coeff
+                    else:
+                        _fname = 'mo_coeff'
+                    if (self.verbose): print(f'Dumping MO coefficients to {_fname}')
+                    np.save(_fname, self.rhf.mo_coeff)
+            self.mo_coeff = self.rhf.mo_coeff
         _t1 = time.time()
 
         print(f'PySCF RHF time:              {_t1-_ti:15.7f} s')
         print('-'*47)
         
         if (transform):
-            self.nonrel_ao2mo(self.rhf.mo_coeff, frozen)
+            self.nonrel_ao2mo(self.mo_coeff, frozen)
 
             if (debug and self.verbose):
                 self.rhf_e1 = np.einsum('ii->',self.rhf_hcore_spinorb[:self.nocc, :self.nocc])
-                self.rhf_e2 = 0.5*np.einsum('ijij->',self.rhf_eri_full_asym[:self.nocc, :self.nocc, :self.nocc, :self.nocc])            
+                self.rhf_e2 = 0.5*np.einsum('ijij->',self.eri[:self.nocc, :self.nocc, :self.nocc, :self.nocc])            
                 self.rhf_e_rebuilt = self.rhf_e1 + self.rhf_e2 + self.nuclear_repulsion
                 print(f"Rebuilt RHF Energy:          {self.rhf_e_rebuilt.real:15.7f} Eh")
-                print(f"Error to PySCF:              {np.abs(self.rhf_e_rebuilt.real - self.rhf_energy):15.7f} Eh")
+                print(f"Error to PySCF:              {np.abs(self.rhf_e_rebuilt.real - self.mf_energy):15.7f} Eh")
                 if (frozen is None): print(f"Diff 1e:                     {np.abs(self.rhf.scf_summary['e1']-self.rhf_e1):15.7f} Eh")
                 if (frozen is None): print(f"Diff 2e:                     {np.abs(self.rhf.scf_summary['e2']-self.rhf_e2):15.7f} Eh")
                 print('-'*47)
@@ -768,12 +773,12 @@ class RelForte:
         
         if (type(fake_dhf) is str):
             f = h5py.File(fake_dhf, 'r')
-            self.dhf_energy = f['SCF']['TOTAL_ENERGY'][:][0]
+            self.mf_energy = f['SCF']['TOTAL_ENERGY'][:][0]
         else:
-            self.dhf_energy = self.dhf.kernel()
+            self.mf_energy = self.dhf.kernel()
             if (self.verbose): 
                 _t0 = time.time()
-                print(f"Relativistic DHF Energy:     {self.dhf_energy:15.7f} Eh")
+                print(f"Relativistic DHF Energy:     {self.mf_energy:15.7f} Eh")
                 print(f'PySCF RHF time:              {_t0-_ti:15.7f} s')
                 print('-'*47)
 
@@ -790,11 +795,11 @@ class RelForte:
                 self.rel_ao2mo(self.dhf.mo_coeff, frozen, algo, erifile)
                 
                 self.dhf_e1 = np.einsum('ii->',self.dhf_hcore_mo[:self.nocc, :self.nocc])
-                self.dhf_e2 = 0.5*np.einsum('ijij->',self.dhf_eri_full_asym[:self.nocc, :self.nocc, :self.nocc, :self.nocc])            
+                self.dhf_e2 = 0.5*np.einsum('ijij->',self.eri[:self.nocc, :self.nocc, :self.nocc, :self.nocc])            
                 self.dhf_e_rebuilt = self.dhf_e1 + self.dhf_e2 + self.nuclear_repulsion
                 if (debug and self.verbose):
                     print(f"Rebuilt DHF Energy:          {self.dhf_e_rebuilt.real:15.7f} Eh")
-                    print(f"Error to PySCF:              {np.abs(self.dhf_e_rebuilt.real - self.dhf_energy):15.7f} Eh")
+                    print(f"Error to PySCF:              {np.abs(self.dhf_e_rebuilt.real - self.mf_energy):15.7f} Eh")
                     if (frozen is None):
                         print(f"Diff 1e:                     {np.abs(self.dhf.scf_summary['e1']-self.dhf_e1):15.7f} Eh")
                         print(f"Diff 2e:                     {np.abs(self.dhf.scf_summary['e2']-self.dhf_e2):15.7f} Eh")
@@ -847,14 +852,14 @@ class RelForte:
     def run_mp2(self, relativistic=True):
         if (relativistic):
             _hcore = self.dhf_hcore_mo
-            _eri = self.dhf_eri_full_asym
+            _eri = self.eri
             _method = 'Relativistic'
-            _e_scf = self.dhf_energy
+            _e_scf = self.mf_energy
         else:
             _hcore = self.rhf_hcore_spinorb
-            _eri = self.rhf_eri_full_asym
+            _eri = self.eri
             _method = 'Non-relativistic'
-            _e_scf = self.rhf_energy
+            _e_scf = self.mf_energy
         
         if (self.verbose):
             print('')
@@ -897,26 +902,7 @@ class RelForte:
             if (not relativistic): print(f'Error to PySCF:              {(self.e_mp2-_e_mp2):15.7f} Eh')
             print(f'Time taken:                  {(_t1-_t0):15.7f} s')
             print('='*47)
-    
-    def run_casscf_pyscf(self, cas, transform=False, frozen=None):
-        _ti = time.time()
-        if (self.verbose):
-            print('='*47)
-            print('{:^47}'.format('PySCF CASSCF interface'))
-            print('='*47)
         
-        casscf = pyscf.mcscf.CASSCF(self.rhf, int(cas[1]//2), cas[0])
-        res = casscf.kernel()
-        self.e_casscf = res[0]
-
-        if (transform):
-            self.nonrel_ao2mo(res[3], frozen=None)
-
-            if (self.verbose):
-                _tf = time.time()
-                print(f'CASSCF time:                 {_tf-_ti:15.7f} s')
-                print('='*47)
-    
     def run_casci(self, cas=None, do_fci=False, rdm_level=0, relativistic=True, semi_canonicalize=True, state_avg=None, sa_weights=None):
         _t0 = time.time()
         
@@ -1006,14 +992,14 @@ class RelForte:
             
         if (relativistic):
             _hcore = self.dhf_hcore_mo
-            _eri = self.dhf_eri_full_asym
+            _eri = self.eri
             _method = 'Relativistic'
-            _e_scf = self.dhf_energy
+            _e_scf = self.mf_energy
         else:
             _hcore = self.rhf_hcore_spinorb
-            _eri = self.rhf_eri_full_asym
+            _eri = self.eri
             _method = 'Non-relativistic'
-            _e_scf = self.rhf_energy
+            _e_scf = self.mf_energy
 
         if (self.verbose):
             print('')
@@ -1029,7 +1015,7 @@ class RelForte:
             _hcore_cas = _hcore
             
         self.ncombs, self.det_strings = form_cas_determinant_strings(*self.cas)
-        self.cas_hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, ncore=self.ncore)
+        self.cas_hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, self.dtype, ncore=self.ncore)
 
         _t1 = time.time()
         
@@ -1045,7 +1031,7 @@ class RelForte:
             _rdms = {'max_rdm_level':rdm_level}
             if (rdm_level>=1):
                 _psi = [self.casci_eigvecs[:,i] for i in self.state_avg]
-                _rdms['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+                _rdms['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
                 # J. Chem. Phys. 146, 124132 (2017), eq. 18
                 self.gen_fock_canon = _hcore.copy() + np.einsum('piqi->pq',_eri[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri[:,self.active,:,self.active],_rdms['1rdm'])
                 self.fock = self.gen_fock_canon
@@ -1061,18 +1047,18 @@ class RelForte:
                     self.F1 = np.copy(self.fock - self.F0)
                     self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
                 else:
-                    self.semicanonicalizer = np.diag((np.zeros(self.fock.shape[0],dtype='complex128')+1.0))
+                    self.semicanonicalizer = np.diag((np.zeros(self.fock.shape[0],dtype=self.dtype)+1.0))
                     self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
             if (rdm_level>=2):
                 if (self.cas[0]>=2):
-                    _rdms['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+                    _rdms['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
                 else:
-                    _rdms['2rdm'] = np.zeros((self.cas[1],self.cas[1],self.cas[1],self.cas[1]), dtype='complex128')
+                    _rdms['2rdm'] = np.zeros((self.cas[1],self.cas[1],self.cas[1],self.cas[1]), dtype=self.dtype)
             if (rdm_level>=3):
                 if (self.cas[0]>=3):
-                    _rdms['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+                    _rdms['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
                 else:
-                    _rdms['3rdm'] = np.zeros((self.cas[1],self.cas[1],self.cas[1],self.cas[1],self.cas[1],self.cas[1]), dtype='complex128')
+                    _rdms['3rdm'] = np.zeros((self.cas[1],self.cas[1],self.cas[1],self.cas[1],self.cas[1],self.cas[1]), dtype=self.dtype)
 
             if (semi_canonicalize):
                 # a_p+~ = a_q+ U _qp
@@ -1122,7 +1108,7 @@ class RelForte:
                 
         _t4 = time.time()
         
-        if (not relativistic):
+        if (False):
             self.nonrel_casci = pyscf.mcscf.CASCI(self.rhf, int(self.cas[1]/2), self.cas[0])
             self.e_casci_pyscf = self.nonrel_casci.kernel()[0]
             if (self.verbose): print(f'Error to PySCF:              {(self.e_casci-self.e_casci_pyscf):15.7f} Eh')
@@ -1135,10 +1121,10 @@ class RelForte:
 
         if (relativistic):
             self.dhf_hcore_mo = _hcore
-            self.dhf_eri_full_asym = _eri
+            self.eri = _eri
         else:
             self.rhf_hcore_spinorb = _hcore
-            self.rhf_eri_full_asym = _eri
+            self.eri = _eri
             
         if (rdm_level > 0):
             if (self.verbose): print(f'... RDM build:                {(_t3-_t2):15.7f} s')
@@ -1181,23 +1167,23 @@ class RelForte:
 
     def form_amplitudes(self, F, V):
         T2 = V[self.hole,self.hole,self.part,self.part].copy() * self.d2
-        T2[self.ha,self.ha,self.pa,self.pa] = .0j
+        T2[self.ha,self.ha,self.pa,self.pa] = .0
 
         T1 = F[self.hole,self.part].copy()
         T1 += np.einsum('xu,iuax,xu->ia', self.denom_act, T2[:,self.ha,:,self.pa],self.cumulants['gamma1'])
         T1 *= self.d1
-        T1[self.ha,self.pa] = .0j
+        T1[self.ha,self.pa] = .0
 
         return T1, T2
     
     def run_dsrg_mrpt3(self, s, relativistic, relax=None, relax_convergence=1e-8, maxiter=20, pt2_only=False):
         self.relax = relax
         if (relativistic):           
-            _eri = self.dhf_eri_full_asym
+            _eri = self.eri
             _method = 'Relativistic'
             _hcore = self.dhf_hcore_mo
         else:
-            _eri = self.rhf_eri_full_asym
+            _eri = self.eri
             _method = 'Non-relativistic'
             _hcore = self.rhf_hcore_spinorb
 
@@ -1263,9 +1249,9 @@ class RelForte:
             if (nrelax == 1): break
 
             _psi = [self.dsrg_mrpt3_relax_eigvecs[:,i] for i in self.state_avg]
-            self.rdms_canon['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
-            self.rdms_canon['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
-            self.rdms_canon['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+            self.rdms_canon['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
+            self.rdms_canon['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
+            self.rdms_canon['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
 
             _eri_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl',np.conjugate(self.semicanonicalizer),np.conjugate(self.semicanonicalizer),_eri,self.semicanonicalizer,self.semicanonicalizer,optimize='optimal')
             _hcore_canon = np.einsum('ip,pq,jq->ij',np.conjugate(self.semicanonicalizer),_hcore,self.semicanonicalizer,optimize='optimal')
@@ -1273,7 +1259,7 @@ class RelForte:
 
             _gen_fock_canon = _hcore_canon.copy() + np.einsum('piqi->pq',_eri_canon[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri_canon[:,self.active,:,self.active],self.rdms_canon['1rdm'])
 
-            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype='complex128')
+            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype=self.dtype)
             _gen_fock_diag[self.core,self.core] = _gen_fock_canon[self.core,self.core].copy()
             _gen_fock_diag[self.active,self.active] = _gen_fock_canon[self.active,self.active].copy()
             _gen_fock_diag[self.virt,self.virt] = _gen_fock_canon[self.virt,self.virt].copy()
@@ -1349,16 +1335,16 @@ class RelForte:
         t0 = time.time()
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
 
-        self.H0A1_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
-        self.H0A1_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype='complex128')
+        self.H0A1_1b = np.zeros((self.nlrg,self.nlrg), dtype=self.dtype)
+        self.H0A1_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype=self.dtype)
         H1_T2_C2(None, self.H0A1_2b, self.F0, None, None, self.T2_1, *fixed_args)
         H1_T2_C1(self.H0A1_1b, None, self.F0, None, None, self.T2_1, *fixed_args)
         H1_T1_C1(self.H0A1_1b, None, self.F0, None, self.T1_1, None, *fixed_args)
         antisymmetrize_and_hermitize(self.H0A1_2b)
         self.H0A1_1b += self.H0A1_1b.T.conj()
 
-        H0A1A1_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
-        H0A1A1_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype='complex128')
+        H0A1A1_1b = np.zeros((self.nlrg,self.nlrg), dtype=self.dtype)
+        H0A1A1_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype=self.dtype)
 
         H1_T1_C1(H0A1A1_1b, None,      self.H0A1_1b, None,    self.T1_1, None,    *fixed_args)
         H1_T2_C1(H0A1A1_1b, None,      self.H0A1_1b, None,    None,    self.T2_1, *fixed_args)
@@ -1385,13 +1371,13 @@ class RelForte:
     def compute_energy_pt2(self, eri):
         t0 = time.time()
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
-        self.F_1_tilde = np.zeros(self.fock.shape, dtype='complex128')
+        self.F_1_tilde = np.zeros(self.fock.shape, dtype=self.dtype)
         self.F_1_tilde[self.hole,self.part] = np.copy(self.fock[self.hole,self.part].conj())
         self.F_1_tilde[self.hole,self.part] += self.F_1_tilde[self.hole,self.part] * self.d1_exp
         self.F_1_tilde[self.hole,self.part] += np.multiply(self.d1_exp, np.einsum('xu,iuax,xu->ia',self.denom_act,self.T2_1[:,self.ha,:,self.pa],self.cumulants['gamma1']))
         self.F_1_tilde = np.conj(self.F_1_tilde).T
 
-        self.V_1_tilde = np.zeros(eri.shape, dtype='complex128')
+        self.V_1_tilde = np.zeros(eri.shape, dtype=self.dtype)
         self.V_1_tilde[self.hole,self.hole,self.part,self.part] = eri[self.hole,self.hole,self.part,self.part].copy()
         self.V_1_tilde[self.hole,self.hole,self.part,self.part] += self.V_1_tilde[self.hole,self.hole,self.part,self.part] * self.d2_exp
         self.V_1_tilde = np.einsum('ijab->abij',self.V_1_tilde)
@@ -1412,8 +1398,8 @@ class RelForte:
         Htilde1_1b = self.H0A1_1b + 2*self.F1.conj()
         Htilde1_2b = self.H0A1_2b + 2*eri.conj()
 
-        self.Htilde1A1_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
-        self.Htilde1A1_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype='complex128')
+        self.Htilde1A1_1b = np.zeros((self.nlrg,self.nlrg), dtype=self.dtype)
+        self.Htilde1A1_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype=self.dtype)
 
         H1_T1_C1(self.Htilde1A1_1b, None, Htilde1_1b, None,          self.T1_1, None,    *fixed_args)
         H1_T2_C1(self.Htilde1A1_1b, None, Htilde1_1b, None,          None,    self.T2_1, *fixed_args)
@@ -1441,8 +1427,8 @@ class RelForte:
         t0 = time.time()
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
 
-        self.H0A2_1b = np.zeros((self.nlrg,self.nlrg), dtype='complex128')
-        self.H0A2_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype='complex128')
+        self.H0A2_1b = np.zeros((self.nlrg,self.nlrg), dtype=self.dtype)
+        self.H0A2_2b = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg), dtype=self.dtype)
         H1_T2_C2(None, self.H0A2_2b, self.F0, None, None, self.T2_2, *fixed_args)
         H1_T2_C1(self.H0A2_1b, None, self.F0, None, None, self.T2_2, *fixed_args)
         H1_T1_C1(self.H0A2_1b, None, self.F0, None, self.T1_2, None, *fixed_args)
@@ -1477,14 +1463,14 @@ class RelForte:
 
     def dsrg_mrpt3_update(self, s, eri, pt2_only):
         if (self.relax_ref):
-            self.hbar1 = np.zeros((self.nact,self.nact),dtype='complex128')
-            self.hbar2 = np.zeros((self.nact,self.nact,self.nact,self.nact),dtype='complex128')
+            self.hbar1 = np.zeros((self.nact,self.nact),dtype=self.dtype)
+            self.hbar2 = np.zeros((self.nact,self.nact,self.nact,self.nact),dtype=self.dtype)
 
         self.cumulants = make_cumulants(self.rdms)
         self.form_denominators(s)
         self.T1_1, self.T2_1 = self.form_amplitudes(self.fock.conj(), eri.conj())
 
-        self.e_dsrg_mrpt3_1 = self.e_dsrg_mrpt2 = self.e_dsrg_mrpt3_2 = self.e_dsrg_mrpt3_3 = .0j
+        self.e_dsrg_mrpt3_1 = self.e_dsrg_mrpt2 = self.e_dsrg_mrpt3_2 = self.e_dsrg_mrpt3_3 = .0
 
         if (not pt2_only):
             self.compute_energy_pt3_1()
@@ -1505,11 +1491,11 @@ class RelForte:
         """
         self.relax = relax
         if (relativistic):
-            _eri = self.dhf_eri_full_asym
+            _eri = self.eri
             _method = 'Relativistic'
             _hcore = self.dhf_hcore_mo
         else:
-            _eri = self.rhf_eri_full_asym
+            _eri = self.eri
             _method = 'Non-relativistic'
             _hcore = self.rhf_hcore_spinorb
 
@@ -1573,9 +1559,9 @@ class RelForte:
             if (nrelax == 1): break
 
             _psi = [self.dsrg_mrpt2_relax_eigvecs[:,i] for i in self.state_avg]
-            self.rdms_canon['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
-            self.rdms_canon['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
-            self.rdms_canon['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+            self.rdms_canon['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
+            self.rdms_canon['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
+            self.rdms_canon['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
 
             _eri_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl',np.conjugate(self.semicanonicalizer),np.conjugate(self.semicanonicalizer),_eri,self.semicanonicalizer,self.semicanonicalizer,optimize='optimal')
             _hcore_canon = np.einsum('ip,pq,jq->ij',np.conjugate(self.semicanonicalizer),_hcore,self.semicanonicalizer,optimize='optimal')
@@ -1583,7 +1569,7 @@ class RelForte:
 
             _gen_fock_canon = _hcore_canon.copy() + np.einsum('piqi->pq',_eri_canon[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri_canon[:,self.active,:,self.active],self.rdms_canon['1rdm'])
 
-            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype='complex128')
+            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype=self.dtype)
             _gen_fock_diag[self.core,self.core] = _gen_fock_canon[self.core,self.core].copy()
             _gen_fock_diag[self.active,self.active] = _gen_fock_canon[self.active,self.active].copy()
             _gen_fock_diag[self.virt,self.virt] = _gen_fock_canon[self.virt,self.virt].copy()
@@ -1717,7 +1703,7 @@ class RelForte:
         self.hbar1_canon = np.einsum('ip,pq,jq->ij', np.conj(self.semicanonicalizer_active), self.hbar1, (self.semicanonicalizer_active), optimize='optimal')
         self.hbar2_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl', np.conj(self.semicanonicalizer_active), np.conj(self.semicanonicalizer_active), self.hbar2, (self.semicanonicalizer_active),(self.semicanonicalizer_active), optimize='optimal')
 
-        _ref_relax_hamil = form_cas_hamiltonian(self.hbar1_canon, self.hbar2_canon, self.det_strings, self.verbose, self.cas)
+        _ref_relax_hamil = form_cas_hamiltonian(self.hbar1_canon, self.hbar2_canon, self.det_strings, self.verbose, self.dtype, self.cas)
         self.dsrg_mrpt3_relax_eigvals, self.dsrg_mrpt3_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
 
         self.e_relax = (np.dot(self.dsrg_mrpt3_relax_eigvals[self.state_avg], self.sa_weights) + self.relax_e_scalar)
@@ -1752,7 +1738,7 @@ class RelForte:
             _hbar1_canon = _hbar1
             _hbar2_canon = _hbar2
 
-        _ref_relax_hamil = form_cas_hamiltonian(_hbar1_canon, _hbar2_canon, self.det_strings, self.verbose, self.cas)
+        _ref_relax_hamil = form_cas_hamiltonian(_hbar1_canon, _hbar2_canon, self.det_strings, self.verbose, self.dtype, self.cas)
         self.dsrg_mrpt2_relax_eigvals, self.dsrg_mrpt2_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
 
         self.e_relax = (np.dot(self.dsrg_mrpt2_relax_eigvals[self.state_avg], self.sa_weights) + _e_scalar)
@@ -1768,11 +1754,11 @@ class RelForte:
     def run_mr_ldsrg2(self, s, relativistic, relax=None, relax_convergence=1e-8, maxiter=20, max_ncomm=10):
         self.relax = relax
         if (relativistic):           
-            _eri = self.dhf_eri_full_asym
+            _eri = self.eri
             _method = 'Relativistic'
             _hcore = self.dhf_hcore_mo
         else:
-            _eri = self.rhf_eri_full_asym
+            _eri = self.eri
             _method = 'Non-relativistic'
             _hcore = self.rhf_hcore_spinorb
 
@@ -1838,9 +1824,9 @@ class RelForte:
             if (nrelax == 1): break
 
             _psi = [self.mr_ldsrg2_relax_eigvecs[:,i] for i in self.state_avg]
-            self.rdms_canon['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
-            self.rdms_canon['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
-            self.rdms_canon['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose)
+            self.rdms_canon['1rdm'] = get_1_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
+            self.rdms_canon['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
+            self.rdms_canon['3rdm'] = get_3_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
 
             _eri_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl',np.conjugate(self.semicanonicalizer),np.conjugate(self.semicanonicalizer),_eri,self.semicanonicalizer,self.semicanonicalizer,optimize='optimal')
             _hcore_canon = np.einsum('ip,pq,jq->ij',np.conjugate(self.semicanonicalizer),_hcore,self.semicanonicalizer,optimize='optimal')
@@ -1848,7 +1834,7 @@ class RelForte:
 
             _gen_fock_canon = _hcore_canon.copy() + np.einsum('piqi->pq',_eri_canon[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri_canon[:,self.active,:,self.active],self.rdms_canon['1rdm'])
 
-            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype='complex128')
+            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype=self.dtype)
             _gen_fock_diag[self.core,self.core] = _gen_fock_canon[self.core,self.core].copy()
             _gen_fock_diag[self.active,self.active] = _gen_fock_canon[self.active,self.active].copy()
             _gen_fock_diag[self.virt,self.virt] = _gen_fock_canon[self.virt,self.virt].copy()
@@ -1934,7 +1920,7 @@ class RelForte:
         self.T1, self.T2 = self.form_amplitudes(self.hbar_1b.conj(), self.hbar_2b.conj())
 
         self.converged = False
-        e_old = .0 + .0j
+        e_old = .0
         iter = 0
         print('='*50)
         print('{:^50}'.format('MR-LDSRG(2)'))
@@ -1957,18 +1943,18 @@ class RelForte:
     def update_amplitudes(self):
         self.T1 = (self.hbar_1b[self.hole,self.part] + self.T1*self.delta1)*self.d1
         self.T2 = (self.hbar_2b[self.hole,self.hole,self.part,self.part] + self.T2*self.delta2)*self.d2
-        self.T1[self.ha,self.pa] = 0
-        self.T2[self.ha,self.ha,self.pa,self.pa] = 0
+        self.T1[self.ha,self.pa] = .0
+        self.T2[self.ha,self.ha,self.pa,self.pa] = .0
 
     def compute_hbar(self, _eri, max_ncomm=12):
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], \
                       self.cumulants['lambda2'], self.cumulants['lambda3'], self)
         self.hbar_1b = self.fock.copy()
         self.hbar_2b = _eri.copy()
-        self.e_mr_ldsrg2 = .0 + .0j
+        self.e_mr_ldsrg2 = .0
         o1_old = self.fock.copy()
         o2_old = _eri.copy()
-        o0 = .0 + .0j
+        o0 = .0
         o1 = np.zeros_like(o1_old)
         o2 = np.zeros_like(o2_old)
         ncomm = 0
@@ -2017,7 +2003,7 @@ class RelForte:
         _rhf_hcore_ao = self.mol.intor_symmetric('int1e_kin') + self.mol.intor_symmetric('int1e_nuc')
         _rhf_hcore_mo = np.einsum('pi,pq,qj->ij', mo_coeff, _rhf_hcore_ao, mo_coeff)
 
-        _rhf_hcore_spinorb = np.zeros((self.nlrg,self.nlrg),dtype='complex128') # Interleaved 1a1b 2a2b 3a3b ....
+        _rhf_hcore_spinorb = np.zeros((self.nlrg,self.nlrg),dtype=self.dtype) # Interleaved 1a1b 2a2b 3a3b ....
         _rhf_hcore_spinorb[::2,::2] = _rhf_hcore_spinorb[1::2,1::2] = _rhf_hcore_mo
 
         if (frozen == 0 or frozen == (0,0)):
@@ -2077,7 +2063,7 @@ class RelForte:
         _rhf_eri_mo = pyscf.ao2mo.incore.full(_rhf_eri_ao, mo_coeff)
         _rhf_eri_spatorb = _rhf_eri_mo.swapaxes(1,2)
 
-        _rhf_eri_full_asym = np.zeros((_nlrg,_nlrg,_nlrg,_nlrg),dtype='complex128') # Interleaved 1a1b 2a2b 3a3b ....
+        _rhf_eri_full_asym = np.zeros((_nlrg,_nlrg,_nlrg,_nlrg),dtype=self.dtype) # Interleaved 1a1b 2a2b 3a3b ....
         _rhf_eri_full_asym[::2,::2,::2,::2] = _rhf_eri_full_asym[1::2,1::2,1::2,1::2] = _rhf_eri_spatorb - _rhf_eri_spatorb.swapaxes(2,3) # <aa||aa> and <bb||bb>
         _rhf_eri_full_asym[::2,1::2,::2,1::2] = _rhf_eri_full_asym[1::2,::2,1::2,::2] = _rhf_eri_spatorb # <ab||ab> = <ba||ba> = <ab|ab>
         _rhf_eri_full_asym[::2,1::2,1::2,::2] = _rhf_eri_full_asym[1::2,::2,::2,1::2] = -_rhf_eri_spatorb.swapaxes(2,3) # <ab||ba> = <ba||ab> = -<ab|ab>
@@ -2086,11 +2072,11 @@ class RelForte:
             self.e_frozen += 0.5*np.einsum('ijij->',_rhf_eri_full_asym[:self.nfrozen,:self.nfrozen,:self.nfrozen,:self.nfrozen])
 
             self.rhf_hcore_spinorb = _rhf_hcore_spinorb[_actv, _actv].copy() + np.einsum('ipjp->ij',_rhf_eri_full_asym[_actv,_frzc,_actv,_frzc])
-            self.rhf_eri_full_asym = _rhf_eri_full_asym[_actv,_actv,_actv,_actv]
+            self.eri = _rhf_eri_full_asym[_actv,_actv,_actv,_actv]
             del _rhf_eri_full_asym
         else:
             self.e_frozen = 0.0
-            self.rhf_eri_full_asym = _rhf_eri_full_asym
+            self.eri = _rhf_eri_full_asym
             self.rhf_hcore_spinorb = _rhf_hcore_spinorb
 
         self.nuclear_repulsion += self.e_frozen
@@ -2139,7 +2125,7 @@ class RelForte:
         with np.load(eriread) as npzfile:
             self.e_frozen = npzfile['e_frozen']
             self.dhf_hcore_mo = npzfile['dhf_hcore_mo']
-            self.dhf_eri_full_asym = npzfile['dhf_eri_full_asym']
+            self.eri = npzfile['dhf_eri_full_asym']
 
         self.nuclear_repulsion += self.e_frozen
         _t1 = time.time()
@@ -2245,9 +2231,9 @@ class RelForte:
             else:
                 if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the MO ERI tensor!')
 
-            self.dhf_eri_full_asym = np.einsum('lpq,lrs->pqrs',_Lpq_mo_LL[:,_actv,_actv],_Lpq_mo_LL[:,_actv,_actv],optimize='optimal') + np.einsum('lpq,lrs->pqrs',_Lpq_mo_SS[:,_actv,_actv],_Lpq_mo_SS[:,_actv,_actv],optimize='optimal') + np.einsum('lpq,lrs->pqrs',_Lpq_mo_LL[:,_actv,_actv],_Lpq_mo_SS[:,_actv,_actv],optimize='optimal') + np.einsum('lpq,lrs->pqrs',_Lpq_mo_SS[:,_actv,_actv],_Lpq_mo_LL[:,_actv,_actv],optimize='optimal')
+            self.eri = np.einsum('lpq,lrs->pqrs',_Lpq_mo_LL[:,_actv,_actv],_Lpq_mo_LL[:,_actv,_actv],optimize='optimal') + np.einsum('lpq,lrs->pqrs',_Lpq_mo_SS[:,_actv,_actv],_Lpq_mo_SS[:,_actv,_actv],optimize='optimal') + np.einsum('lpq,lrs->pqrs',_Lpq_mo_LL[:,_actv,_actv],_Lpq_mo_SS[:,_actv,_actv],optimize='optimal') + np.einsum('lpq,lrs->pqrs',_Lpq_mo_SS[:,_actv,_actv],_Lpq_mo_LL[:,_actv,_actv],optimize='optimal')
             del _Lpq_mo_LL, _Lpq_mo_SS
-            self.dhf_eri_full_asym = self.dhf_eri_full_asym.swapaxes(1,2) - self.dhf_eri_full_asym.swapaxes(1,2).swapaxes(2,3)
+            self.eri = self.eri.swapaxes(1,2) - self.eri.swapaxes(1,2).swapaxes(2,3)
         else:
             if (algo == 'direct'):
                 _write_eri = False
@@ -2265,7 +2251,7 @@ class RelForte:
                     else:
                         if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the frozen core ERI tensor!')
 
-                    eri_fc_ao = np.zeros((self.nfrozen,self.nfrozen,self.nfrozen,self.nfrozen),dtype='complex128')
+                    eri_fc_ao = np.zeros((self.nfrozen,self.nfrozen,self.nfrozen,self.nfrozen),dtype=self.dtype)
                     eri_fc = self.rel_ao2mo_einsum(mo_coeff, _nlrg, eri_fc_ao, (_frzc,_frzc,_frzc,_frzc))
                     self.e_frozen += 0.5*(np.einsum('iijj->',eri_fc)-np.einsum('ijji->',eri_fc))
                     del eri_fc, eri_fc_ao
@@ -2276,13 +2262,13 @@ class RelForte:
                     else:
                         if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the aacc and acca ERI tensor!')
 
-                    eri_aacc_ao = np.zeros((self.nlrg,self.nlrg,self.nfrozen,self.nfrozen),dtype='complex128')
+                    eri_aacc_ao = np.zeros((self.nlrg,self.nlrg,self.nfrozen,self.nfrozen),dtype=self.dtype)
                     eri_aacc = self.rel_ao2mo_einsum(mo_coeff, _nlrg, eri_aacc_ao, (_actv,_actv,_frzc,_frzc))
                     self.dhf_hcore_mo = _dhf_hcore_mo[_actv,_actv].copy()
                     self.dhf_hcore_mo += np.einsum('pqii->pq', eri_aacc)
                     del eri_aacc_ao, eri_aacc
 
-                    eri_acca_ao = np.zeros((self.nlrg,self.nfrozen,self.nfrozen,self.nlrg),dtype='complex128')
+                    eri_acca_ao = np.zeros((self.nlrg,self.nfrozen,self.nfrozen,self.nlrg),dtype=self.dtype)
                     eri_acca = self.rel_ao2mo_einsum(mo_coeff, _nlrg, eri_acca_ao, (_actv,_frzc,_frzc,_actv))
                     self.dhf_hcore_mo -= np.einsum('piiq->pq', eri_acca)
                     del eri_acca_ao, eri_acca
@@ -2293,7 +2279,7 @@ class RelForte:
                 else:
                     if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the AO ERI tensor!')
 
-                _dhf_eri_mo_full = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg),dtype='complex128')
+                _dhf_eri_mo_full = np.zeros((self.nlrg,self.nlrg,self.nlrg,self.nlrg),dtype=self.dtype)
                 _dhf_eri_mo_full = self.rel_ao2mo_einsum(mo_coeff, _nlrg, _dhf_eri_mo_full, (_actv,_actv,_actv,_actv))
                 
                 _dhf_eri_full_asym = _dhf_eri_mo_full.swapaxes(1,2) - _dhf_eri_mo_full.swapaxes(1,2).swapaxes(2,3)
@@ -2301,15 +2287,15 @@ class RelForte:
                 del _dhf_eri_mo_full
 
                 if (frozen is not None):
-                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    self.eri = _dhf_eri_full_asym
                     del _dhf_eri_full_asym
                 else:
                     self.e_frozen = 0.0
-                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    self.eri = _dhf_eri_full_asym
                     self.dhf_hcore_mo = _dhf_hcore_mo
 
                 if (_write_eri):
-                    np.savez(erifile, e_frozen=self.e_frozen, dhf_hcore_mo=self.dhf_hcore_mo, dhf_eri_full_asym=self.dhf_eri_full_asym)
+                    np.savez(erifile, e_frozen=self.e_frozen, dhf_hcore_mo=self.dhf_hcore_mo, dhf_eri_full_asym=self.eri)
             
             elif (algo == 'naive'):
                 warnings.warn("The naive algorithm uses excessive memory and is only for testing! Please switch to the 'direct' algorithm for production runs!")
@@ -2319,7 +2305,7 @@ class RelForte:
                 else:
                     if (self.verbose): print(f'Will now allocate {_mem:.3f} GB memory for the AO ERI tensor!')
 
-                _dhf_eri_ao = np.zeros((self.norb,self.norb,self.norb,self.norb),dtype='complex128')
+                _dhf_eri_ao = np.zeros((self.norb,self.norb,self.norb,self.norb),dtype=self.dtype)
                 _dhf_eri_ao[:_nlrg,:_nlrg,:_nlrg,:_nlrg] = self.mol.intor('int2e_spinor')
                 _dhf_eri_ao[_nlrg:,_nlrg:,_nlrg:,_nlrg:] = self.mol.intor('int2e_spsp1spsp2_spinor')/(2*self.c0)**4
                 _dhf_eri_ao[_nlrg:,_nlrg:,:_nlrg,:_nlrg] = self.mol.intor('int2e_spsp1_spinor')/(2*self.c0)**2
@@ -2347,11 +2333,11 @@ class RelForte:
 
                     self.dhf_hcore_mo = _dhf_hcore_mo[_actv, _actv].copy() + np.einsum('ipjp->ij',_dhf_eri_full_asym[_actv,_frzc,_actv,_frzc])
                     del _dhf_hcore_mo
-                    self.dhf_eri_full_asym = _dhf_eri_full_asym[_actv,_actv,_actv,_actv]
+                    self.eri = _dhf_eri_full_asym[_actv,_actv,_actv,_actv]
                     del _dhf_eri_full_asym
                 else:
                     self.e_frozen = 0.0
-                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    self.eri = _dhf_eri_full_asym
                     self.dhf_hcore_mo = _dhf_hcore_mo
             elif (algo == 'disk'):
                 _cleanup = True
@@ -2425,11 +2411,11 @@ class RelForte:
                 _dhf_eri_full_asym = _dhf_eri_mo_full.swapaxes(1,2) - _dhf_eri_mo_full.swapaxes(1,2).swapaxes(2,3)
 
                 if (frozen is not None):
-                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    self.eri = _dhf_eri_full_asym
                     del _dhf_eri_full_asym, _dhf_eri_mo_full
                 else:
                     self.e_frozen = 0.0
-                    self.dhf_eri_full_asym = _dhf_eri_full_asym
+                    self.eri = _dhf_eri_full_asym
                     self.dhf_hcore_mo = _dhf_hcore_mo
             
         self.nuclear_repulsion += self.e_frozen
@@ -2493,7 +2479,7 @@ class ACISolver:
         self.nuclear_repulsion = self.sys.nuclear_repulsion + self.e_casci_frzc.real
         
     def diagonalize_p_space(self):
-        self.p_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.p_space_det_strings, self.verbose, self.cas)
+        self.p_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.p_space_det_strings, self.verbose, self.dtype, self.cas)
         self.p_space_eigvals, self.p_space_eigvecs = np.linalg.eigh(self.p_hamil)
         self.p_space_energy = self.p_space_eigvals[0].real + self.nuclear_repulsion
         self.rdm1 = get_1_rdm(self.p_space_det_strings, self.cas, self.p_space_eigvecs[:,0], self.verbose)
@@ -2526,7 +2512,7 @@ class ACISolver:
         self.m_space_det_strings = np.array(list(set(self.p_space_det_strings) | set(self.fois[_e_f_argsort[i:]])))
 
     def diagonalize_model_space(self):
-        self.m_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.m_space_det_strings, self.verbose, self.cas)
+        self.m_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.m_space_det_strings, self.verbose, self.dtype, self.cas)
         self.m_space_eigvals, self.m_space_eigvecs = np.linalg.eigh(self.m_hamil)
         self.m_space_energy = self.m_space_eigvals[0].real + self.nuclear_repulsion
 
@@ -2554,7 +2540,7 @@ class ACISolver:
     def run_tdaci(self, dt, nsteps, orb, propagator='exact'):
         self.dt = dt/24.18884327 # attoseconds to a.u. https://en.wikipedia.org/wiki/Hartree_atomic_units
         self.generate_cationic_basis()
-        self.cationic_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.cationic_basis, self.verbose, self.cas)
+        self.cationic_hamil = form_cas_hamiltonian(self.H1body, self.H2body, self.cationic_basis, self.verbose, self.dtype, self.cas)
         self.psi_t = self.generate_initial_state(self.m_space_eigvecs[:,0], orb)
         self.prepare_hole_occnum()
 
@@ -2564,7 +2550,7 @@ class ACISolver:
             self.propagator = np.einsum('ij,jk,lk->il', self.cationic_eigvecs, np.diag(-1j*self.dt*self.cationic_eigvals), self.cationic_eigvecs.conj(), optimize="optimal")
         if (propagator == 'rk4'):
             self.propagator = np.diag(np.ones(self.cationic_hamil.shape[0])) - (1j)*self.dt*self.cationic_hamil
-            coeff = np.array([0.5*self.dt**2, self.dt**3*(-1j)/6, self.dt**4/24], dtype='complex128')
+            coeff = np.array([0.5*self.dt**2, self.dt**3*(-1j)/6, self.dt**4/24], dtype=self.dtype)
             for idx, pow in enumerate([2,3,4]):
                 self.propagator += coeff[idx] * np.linalg.matrix_power(self.cationic_hamil, pow)
 
@@ -2589,7 +2575,7 @@ class ACISolver:
 
     def generate_initial_state(self, psi, orb):
         _ann_psi, _ann_basis = annihilate_state(psi, orb, self.m_space_det_strings)
-        _psi_t0 = np.zeros(len(self.cationic_basis), dtype='complex128')
+        _psi_t0 = np.zeros(len(self.cationic_basis), dtype=self.dtype)
 
         # Now we need to align this to the complete cationic basis
         icat = 0
@@ -2657,11 +2643,11 @@ class ACISolver:
 def davidson_solver(hamil,nroots,maxdim, maxiter):
     L = nroots*2
     ndets = hamil.shape[0]
-    b = np.zeros((ndets, maxdim), dtype='complex128')
+    b = np.zeros((ndets, maxdim), dtype=self.dtype)
     b[:L,:L] = np.eye(L)
-    res = np.zeros(ndets, dtype='complex128')
+    res = np.zeros(ndets, dtype=self.dtype)
     hamdiag = np.diag(hamil)
-    c = np.zeros((ndets,nroots), dtype='complex128')
+    c = np.zeros((ndets,nroots), dtype=self.dtype)
 
     for iter in range(maxiter):
         b[:,:L], r = np.linalg.qr(b[:,:L])
@@ -2683,7 +2669,7 @@ def davidson_solver(hamil,nroots,maxdim, maxiter):
             c = np.einsum('ik,mi->mk',alfa[:,:nroots],b[:,:L])
 
             for k in range(nroots):
-                res = 0.0j
+                res = .0
                 for i in range(L):
                     res += alfa[i,k]*(np.dot(hamil,b[:,i]) - lamb[k]*b[:,i])
                 delta = res / (lamb[k]-hamdiag)
