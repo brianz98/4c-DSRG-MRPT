@@ -1,4 +1,4 @@
-import pyscf, pyscf.mcscf
+import pyscf, pyscf.mcscf, pyscf.fci
 from pyscf import mp, mcscf
 import numpy as np
 import h5py
@@ -15,6 +15,13 @@ import gc
 MACHEPS = 1e-9
 EH_TO_WN = 219474.63
 EH_TO_EV = 27.211399
+
+def eigh_gen(A, S, eta=1e-9):
+    sevals, sevecs = np.linalg.eigh(S)
+    trunc_indices = np.where(np.abs(sevals) > eta)[0]
+    X = sevecs[:,trunc_indices] / np.sqrt(sevals[trunc_indices])
+    Ap = X.T @ A @ X
+    return np.linalg.eigh(Ap)
 
 def fnorm_op(o0, o1, o2):
     return np.sqrt((o1**2).sum() + (o2**2).sum())
@@ -227,7 +234,7 @@ def sph_to_spinor(mol, coeffs):
     
     return mo_rot, rotmat
 
-def form_cas_hamiltonian(H1body, H2body, det_strings, verbose, cas, dtype, ncore=0):
+def form_cas_hamiltonian(H1body, H2body, det_strings, verbose, cas, ncore=0, dtype='complex128'):
     ncombs = len(det_strings)
     _mem = ncombs**2*16/1e9
     if (_mem < 1.0):
@@ -705,10 +712,11 @@ class RelForte:
             print('='*47)
             print('{:^47}'.format('PySCF RHF interface'))
             print('='*47)
-
+        self.mf_in = None
         if mf_in is not None:
             self.mf_energy = mf_in.e_tot
             self.mo_coeff = mf_in.mo_coeff
+            self.mf_in = mf_in
         else:
             if (self.density_fitting):
                 if (self.verbose): print('{:#^47}'.format('Enabling density fitting!')) 
@@ -911,7 +919,14 @@ class RelForte:
         except AssertionError:
             raise Exception("If not doing FCI then a CAS must be provided via the 'cas' argument!")
 
-        if (state_avg is not None):
+        if (self.mf_in is not None):
+            if (isinstance(self.mf_in.fcisolver, pyscf.mcscf.addons.StateAverageFCISolver)):
+                state_avg = np.arange(len(self.mf_in.fcisolver.weights))
+                sa_weights = self.mf_in.fcisolver.weights
+            else:
+                state_avg = [0]
+                sa_weights = [1.0]
+        elif (state_avg is not None):
             try:
                 assert (type(state_avg) is list)
             except AssertionError:
@@ -1015,7 +1030,7 @@ class RelForte:
             _hcore_cas = _hcore
             
         self.ncombs, self.det_strings = form_cas_determinant_strings(*self.cas)
-        self.cas_hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, self.dtype, ncore=self.ncore)
+        self.cas_hamil = form_cas_hamiltonian(_hcore_cas, _eri, self.det_strings, self.verbose, self.cas, ncore=self.ncore, dtype=self.dtype)
 
         _t1 = time.time()
         
@@ -1165,6 +1180,64 @@ class RelForte:
                     for l in range(self.npart):
                         self.d2_exp[i,j,k,l] = np.exp(-s*(fdiag[i]+fdiag[j]-fdiag[k+self.ncore]-fdiag[l+self.ncore])**2)
 
+    def run_ip_singles(self, pt=False):
+        if pt:
+            _hbar_1b = 1*(self.H0A2_1b + 0.5*self.Htilde1A1_1b + self.H0A1_1b) + self.F0 + self.F1
+            _hbar_2b = 1*(self.H0A2_2b + 0.5*self.Htilde1A1_2b + self.H0A1_2b) + self.eri
+        else:
+            _hbar_1b = self.hbar_1b
+            _hbar_2b = self.hbar_2b
+        self.hbar_eom = np.zeros((self.nhole,self.nhole))
+        self.hbar_eom[self.core,self.core] = -_hbar_1b[self.core,self.core]
+        self.hbar_eom[self.core,self.ha] = -np.einsum('mu,uv->mv',_hbar_1b[self.core,self.active],self.cumulants['gamma1']) \
+                                + 0.5*np.einsum('mwux,uxwv->mv',_hbar_2b[self.core,self.active,self.active,self.active],self.cumulants['lambda2'])
+        self.hbar_eom[self.ha,self.core] = self.hbar_eom[self.core,self.ha].T
+        self.hbar_eom[self.ha,self.ha] = \
+            - np.einsum('vu,ux,wv->wx',_hbar_1b[self.active,self.active],self.cumulants['gamma1'],self.cumulants['gamma1']) \
+            + np.einsum('vu,uwvx->wx',_hbar_1b[self.active,self.active],self.cumulants['lambda2']) \
+            + 0.5*np.einsum('yzuv,wy,uvzx->wx',_hbar_2b[self.active,self.active,self.active,self.active],self.cumulants['gamma1'],self.cumulants['lambda2']) \
+            - 0.5*np.einsum('yzuv,vx,uwyz->wx',_hbar_2b[self.active,self.active,self.active,self.active],self.cumulants['gamma1'],self.cumulants['lambda2']) \
+            + 0.25*np.einsum('yzuv,uvwyzx->wx',_hbar_2b[self.active,self.active,self.active,self.active],self.cumulants['lambda3'])
+
+        self.ovlp_eom = np.eye(self.nhole)
+        self.ovlp_eom[self.active,self.active] = self.cumulants['gamma1']
+
+        self.eom_eigvals, self.eom_eigvecs = eigh_gen(self.hbar_eom, self.ovlp_eom)
+
+    def run_ea_singles(self, pt=False):
+        if pt:
+            _hbar_1b = 1*(self.H0A2_1b + 0.5*self.Htilde1A1_1b + self.H0A1_1b) + self.F0 + self.F1
+            _hbar_2b = 1*(self.H0A2_2b + 0.5*self.Htilde1A1_2b + self.H0A1_2b) + self.eri
+        else:
+            _hbar_1b = self.hbar_1b
+            _hbar_2b = self.hbar_2b
+        self.hbar_eom = np.zeros((self.npart,self.npart))
+        self.hbar_eom[self.pa,self.pa] += np.einsum('vu,uw,xv->wx',_hbar_1b[self.active,self.active],self.cumulants['eta1'],self.cumulants['eta1']) \
+            - np.einsum('vu,uxvw->wx',_hbar_1b[self.active,self.active],self.cumulants['lambda2']) \
+            - 0.5*np.einsum('wxuv,zx,uvwy->yz',_hbar_2b[self.active,self.active,self.active,self.active],self.cumulants['eta1'],self.cumulants['lambda2']) \
+            + 0.5*np.einsum('wxuv,uy,vzwx->yz',_hbar_2b[self.active,self.active,self.active,self.active],self.cumulants['eta1'],self.cumulants['lambda2']) \
+            - 0.25*np.einsum('wxuv,uvzwxy->yz',_hbar_2b[self.active,self.active,self.active,self.active],self.cumulants['lambda3'])
+        self.hbar_eom[self.pa,self.pv] += np.einsum('eu,uv->ve',_hbar_1b[self.virt,self.active],self.cumulants['eta1']) \
+            - 0.5*np.einsum('ewuv,uvwx->xe',_hbar_2b[self.virt,self.active,self.active,self.active],self.cumulants['lambda2'])
+        self.hbar_eom[self.pv,self.pa] = self.hbar_eom[self.pa,self.pv].T
+        self.hbar_eom[self.pv,self.pv] += _hbar_1b[self.virt,self.virt]
+
+        self.ovlp_eom = np.eye(self.npart)
+        self.ovlp_eom[self.pa,self.pa] = self.cumulants['eta1']
+
+        self.eom_eigvals, self.eom_eigvecs = eigh_gen(self.hbar_eom, self.ovlp_eom)
+
+    def run_cvs_ip(self, cvs, pt=False):
+        # 's','a+ c s','v+ c s','a+ s s','v+ s s','a+ s a','v+ s a'
+        if pt:
+            _hbar_1b = 1*(self.H0A2_1b + 0.5*self.Htilde1A1_1b + self.H0A1_1b) + self.F0 + self.F1
+            _hbar_2b = 1*(self.H0A2_2b + 0.5*self.Htilde1A1_2b + self.H0A1_2b) + self.eri
+        else:
+            _hbar_1b = self.hbar_1b
+            _hbar_2b = self.hbar_2b
+        self.hbar_eom = np.zeros((self.npart,self.npart))
+        pass
+
     def form_amplitudes(self, F, V):
         T2 = V[self.hole,self.hole,self.part,self.part].copy() * self.d2
         T2[self.ha,self.ha,self.pa,self.pa] = .0
@@ -1228,7 +1301,7 @@ class RelForte:
                 print('-'*47)
                 print('{:<30}{:<20}{:<10}'.format('Iter','Energy','Delta E'))
                 print(f'   -Eref  {self.e_casci:.7f}       ')
-                print(f'   -Ecorr {self.e_mr_ldsrg2.real:.7f}       ')
+                print(f'   -Ecorr {self.e_dsrg_mrpt3.real:.7f}       ')
         else:
             self.relax_energies = np.zeros((1,3))
             self.relax_energies[0, 0] = self.e_dsrg_mrpt3.real+self.e_casci
@@ -1703,7 +1776,7 @@ class RelForte:
         self.hbar1_canon = np.einsum('ip,pq,jq->ij', np.conj(self.semicanonicalizer_active), self.hbar1, (self.semicanonicalizer_active), optimize='optimal')
         self.hbar2_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl', np.conj(self.semicanonicalizer_active), np.conj(self.semicanonicalizer_active), self.hbar2, (self.semicanonicalizer_active),(self.semicanonicalizer_active), optimize='optimal')
 
-        _ref_relax_hamil = form_cas_hamiltonian(self.hbar1_canon, self.hbar2_canon, self.det_strings, self.verbose, self.dtype, self.cas)
+        _ref_relax_hamil = form_cas_hamiltonian(self.hbar1_canon, self.hbar2_canon, self.det_strings, self.verbose, self.cas, dtype=self.dtype)
         self.dsrg_mrpt3_relax_eigvals, self.dsrg_mrpt3_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
 
         self.e_relax = (np.dot(self.dsrg_mrpt3_relax_eigvals[self.state_avg], self.sa_weights) + self.relax_e_scalar)
@@ -1718,12 +1791,12 @@ class RelForte:
 
     def dsrg_mrpt2_reference_relaxation(self, _eri):
         _hbar2 = _eri[self.active,self.active,self.active,self.active].copy()
-        _C2 = 0.5*Hbar_active_twobody_wicked(self, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, self.cumulants['gamma1'], self.cumulants['eta1'])
+        _C2 = 0.5*Hbar_active_twobody_wicked(self, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, self.cumulants['gamma1'], self.cumulants['eta1'], dtype=self.dtype)
         # 0.5*[H, T-T+] = 0.5*([H, T] + [H, T]+)
         _hbar2 += _C2 + np.einsum('ijab->abij',np.conj(_C2)) 
 
         _hbar1 = self.fock[self.active,self.active].copy()
-        _C1 = 0.5*Hbar_active_onebody_wicked(self, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'])
+        _C1 = 0.5*Hbar_active_onebody_wicked(self, self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], dtype=self.dtype)
         # 0.5*[H, T-T+] = 0.5*([H, T] + [H, T]+)
         _hbar1 += _C1 + np.einsum('ia->ai',np.conj(_C1))
 
@@ -1751,7 +1824,7 @@ class RelForte:
         self.e_dsrg_mrpt2_relaxed = (self.e_casci + self.e_dsrg_mrpt2 + self.e_relax).real
         self.dsrg_mrpt2_relax_eigvals_shifted = (self.e_casci + self.e_dsrg_mrpt2 + self.dsrg_mrpt2_relax_eigvals + _e_scalar)
 
-    def run_mr_ldsrg2(self, s, relativistic, relax=None, relax_convergence=1e-8, maxiter=20, max_ncomm=10):
+    def run_mr_ldsrg2(self, s, relativistic, relax=None, relax_convergence=1e-8, maxiter=20, maxiter_relax=8, max_ncomm=10, e_tol=1e-8):
         self.relax = relax
         if (relativistic):           
             _eri = self.eri
@@ -1777,12 +1850,12 @@ class RelForte:
         elif (relax == 'twice'):
             nrelax = 2
         elif (relax == 'iterate'):
-            nrelax = maxiter
+            nrelax = maxiter_relax
         elif (type(relax) is int):
             if (relax < 0):
                 raise Exception(f'Relax iteration must be positive!')
             else:
-                nrelax = min(maxiter, relax)
+                nrelax = min(maxiter_relax, relax)
         else:
             raise Exception(f'Relax option {relax} is not implemented yet!')
         
@@ -1790,7 +1863,7 @@ class RelForte:
 
         _t2 = time.time()
         self.converged = False
-        self.mr_ldsrg2_update(s, _eri, max_ncomm, maxiter)
+        self.mr_ldsrg2_update(s, _eri, max_ncomm, maxiter, e_tol)
         _verbose = self.verbose
 
         if (nrelax > 0):
@@ -1906,6 +1979,33 @@ class RelForte:
             print(f'Time taken:                  {_t1-_t0:15.7f} s')
             print('='*47)
     
+    def mr_ldsrg2_reference_relaxation(self, _eri):
+        hbar_aa = self.hbar_1b[self.active,self.active].copy()
+        hbar_aaaa = self.hbar_2b[self.active,self.active,self.active,self.active].copy()
+
+        self.relax_e_scalar = -np.einsum('vu,uv->', hbar_aa, self.cumulants['gamma1']) - 0.25*np.einsum('xyuv,uvxy->',hbar_aaaa,self.rdms['2rdm']) + np.einsum('xyuv,ux,vy->',hbar_aaaa,self.cumulants['gamma1'],self.cumulants['gamma1'])
+
+        hbar_aa -= np.einsum('uyvx,xy->uv',hbar_aaaa,self.cumulants['gamma1'])
+
+        # For now, all things to do with CASCI are in the physicist's notation
+        hbar_aa = np.conjugate(hbar_aa)
+        hbar_aaaa = np.conjugate(hbar_aaaa)
+
+        hbar_aa_canon = np.einsum('ip,pq,jq->ij', np.conj(self.semicanonicalizer_active), hbar_aa, (self.semicanonicalizer_active), optimize='optimal')
+        hbar_aaaa_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl', np.conj(self.semicanonicalizer_active), np.conj(self.semicanonicalizer_active), hbar_aaaa, (self.semicanonicalizer_active),(self.semicanonicalizer_active), optimize='optimal')
+
+        _ref_relax_hamil = form_cas_hamiltonian(hbar_aa_canon, hbar_aaaa_canon, self.det_strings, self.verbose, self.cas, dtype=self.dtype)
+        self.mr_ldsrg2_relax_eigvals, self.mr_ldsrg2_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
+
+        self.e_relax = (np.dot(self.mr_ldsrg2_relax_eigvals[self.state_avg], self.sa_weights) + self.relax_e_scalar)
+        try:
+            assert(abs(self.e_relax.imag) < MACHEPS)
+        except AssertionError:
+            print(f'Imaginary part of DSRG-MRPT3 relaxation energy, {self.e_relax.imag} is larger than {MACHEPS}')
+        self.e_relax = self.e_relax.real
+        
+        self.e_mr_ldsrg2_relaxed = (self.e_casci + self.e_mr_ldsrg2 + self.e_relax).real
+        self.mr_ldsrg2_relax_eigvals_shifted = (self.e_casci + self.e_mr_ldsrg2 + self.mr_ldsrg2_relax_eigvals + self.relax_e_scalar)
 
     def mr_ldsrg2_update(self, s, _eri, max_ncomm=12, maxiter=20, e_tol=1e-8):
         self.cumulants = make_cumulants(self.rdms)

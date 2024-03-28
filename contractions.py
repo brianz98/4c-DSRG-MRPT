@@ -49,7 +49,7 @@ def dsrg_HT(F, V, T1, T2, gamma1, eta1, lambda2, lambda3, mf):
     E += +0.125 * np.einsum("uvab,wxab,wxuv->",T2[ha,ha,pv,pv],V[ha,ha,pv,pv],lambda2,optimize="optimal")
     return E
 
-def Hbar_active_twobody_wicked(mf, F, V, T1, T2, gamma1, eta1):
+def Hbar_active_twobody_wicked(mf, F, V, T1, T2, gamma1, eta1, dtype='complex128'):
     hc = mf.hc
     ha = mf.ha
     pa = mf.pa
@@ -57,7 +57,7 @@ def Hbar_active_twobody_wicked(mf, F, V, T1, T2, gamma1, eta1):
 
     # all quantities are stored ^{hh..}_{pp..}
     # h = {c,a}; p = {a, v}
-    _V = np.zeros((mf.nact,mf.nact,mf.nact,mf.nact), dtype='complex128')
+    _V = np.zeros((mf.nact,mf.nact,mf.nact,mf.nact), dtype=dtype)
     # Term 6
     _V += -0.500 * np.einsum("ua,wxva->wxuv",F[ha, pv], T2[ha,ha, pa,pv],optimize="optimal")
     # Term 7
@@ -79,7 +79,7 @@ def Hbar_active_twobody_wicked(mf, F, V, T1, T2, gamma1, eta1):
 
     return antisymmetrize_2(_V.conj(), 'aaaa')
 
-def Hbar_active_onebody_wicked(mf, F, V, T1, T2, gamma1, eta1, lambda2):
+def Hbar_active_onebody_wicked(mf, F, V, T1, T2, gamma1, eta1, lambda2, dtype='complex128'):
     hc = mf.hc
     ha = mf.ha
     pa = mf.pa
@@ -87,7 +87,7 @@ def Hbar_active_onebody_wicked(mf, F, V, T1, T2, gamma1, eta1, lambda2):
 
     # all quantities are stored ^{hh..}_{pp..}
     # h = {c,a}; p = {a,v}
-    _F = np.zeros((mf.nact,mf.nact), dtype='complex128')
+    _F = np.zeros((mf.nact,mf.nact), dtype=dtype)
     _F += -1.000 * np.einsum("iu,iv->uv",F[hc, pa],T1[hc,pa],optimize="optimal")
     _F += -1.000 * np.einsum("iw,ivux,xw->vu",F[hc, pa], T2[hc,ha, pa,pa],eta1,optimize="optimal")
     _F += -1.000 * np.einsum("ia,ivua->vu",F[hc, pv], T2[hc,ha, pa,pv],optimize="optimal")
