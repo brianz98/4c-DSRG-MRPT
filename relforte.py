@@ -679,7 +679,7 @@ def print_energies(energies, nstates=None, splitting=True):
         print('{:<10}{:<20}{:<20}{:<20}{:<20}'.format(f'{istate:d}',f'{energies[istate]:+.7e}',f'{splitting:+.7e}',f'{splitting*EH_TO_WN:+.7e}',f'{splitting*EH_TO_EV*1000:+.7e}'))
 
 class RelForte:
-    def __init__(self, mol, complex=True, mc=None, c0=None, verbose=True, density_fitting=False, decontract=False):
+    def __init__(self, mol, complex=True, c0=None, verbose=True, density_fitting=False, decontract=False):
         if (type(density_fitting) is bool):
             self.density_fitting = density_fitting
             self.df_basis = None
@@ -698,7 +698,7 @@ class RelForte:
         self.nlrg = self.mol.nao*2
         self.nvirtual = self.nlrg - self.nocc
         self.verbose = verbose
-        self.mc = mc
+        self.mf_in = None
         self.dtype = 'complex128' if complex else 'float64'
         if (c0 is None):
             self.c0 = pyscf.lib.param.LIGHT_SPEED
