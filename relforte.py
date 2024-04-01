@@ -1268,8 +1268,15 @@ class RelForte:
 
         _t0 = time.time()
 
+        if len(self.state_avg) > 1 and relax == None:
+            relax = 'once_nodiag'
+
+        nodiag = False
         if (relax is None):
             nrelax = 0
+        elif (relax == 'once_nodiag'):
+            nrelax = 1
+            nodiag = True
         elif (relax == 'once'):
             nrelax = 1
         elif (relax == 'twice'):
@@ -1314,7 +1321,7 @@ class RelForte:
             if (_verbose): print('{:<30}{:<20}{:<10}'.format(f'<Psi^({irelax:d})|Hbar^({irelax:d})|Psi^({irelax:d})>',f'{self.e_dsrg_mrpt3.real+self.e_casci:.7f}',f'{self.relax_energies[irelax][0]-self.relax_energies[irelax-1][1]:.5e}'))
 
             if (nrelax == 2 and irelax == 1): break
-            self.dsrg_mrpt3_reference_relaxation(_eri)
+            self.dsrg_mrpt3_reference_relaxation(_eri, nodiag)
             self.relax_energies[irelax, 1] = self.e_dsrg_mrpt3_relaxed
             if (_verbose): print(f'   -Erelax{self.e_relax:.7f}       ')
             if (_verbose): print('{:<30}{:<20}{:<10}'.format(f'<Psi^({irelax:d})|Hbar^({irelax+1:d})|Psi^({irelax:d})>',f'{self.e_dsrg_mrpt3_relaxed:.7f}',f'{self.relax_energies[irelax][1]-self.relax_energies[irelax][0]:.5e}'))
@@ -1758,7 +1765,7 @@ class RelForte:
 
         self.e_dsrg_mrpt2 = dsrg_HT(self.F_1_tilde, self.V_1_tilde, self.T1_1, self.T2_1, self.cumulants['gamma1'], self.cumulants['eta1'], self.cumulants['lambda2'], self.cumulants['lambda3'], self)
 
-    def dsrg_mrpt3_reference_relaxation(self, _eri):
+    def dsrg_mrpt3_reference_relaxation(self, _eri, nodiag=False):
         self.hbar1 += self.hbar1.T.conj()
         self.hbar1 += self.fock[self.active,self.active].conj()
 
@@ -1777,7 +1784,12 @@ class RelForte:
         self.hbar2_canon = np.einsum('ip,jq,pqrs,kr,ls->ijkl', np.conj(self.semicanonicalizer_active), np.conj(self.semicanonicalizer_active), self.hbar2, (self.semicanonicalizer_active),(self.semicanonicalizer_active), optimize='optimal')
 
         _ref_relax_hamil = form_cas_hamiltonian(self.hbar1_canon, self.hbar2_canon, self.det_strings, self.verbose, self.cas, dtype=self.dtype)
-        self.dsrg_mrpt3_relax_eigvals, self.dsrg_mrpt3_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
+        
+        if not nodiag:
+            self.dsrg_mrpt3_relax_eigvals, self.dsrg_mrpt3_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
+        else:
+            self.dsrg_mrpt3_relax_eigvals = np.einsum('ij,jk,ki->i', self.casci_eigvecs.T, _ref_relax_hamil, self.casci_eigvecs, optimize='optimal')
+            self.dsrg_mrpt3_relax_eigvecs = self.casci_eigvecs
 
         self.e_relax = (np.dot(self.dsrg_mrpt3_relax_eigvals[self.state_avg], self.sa_weights) + self.relax_e_scalar)
         try:
