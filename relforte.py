@@ -1788,7 +1788,7 @@ class RelForte:
         if not nodiag:
             self.dsrg_mrpt3_relax_eigvals, self.dsrg_mrpt3_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
         else:
-            self.dsrg_mrpt3_relax_eigvals = np.einsum('ij,jk,ki->i', self.casci_eigvecs.T, _ref_relax_hamil, self.casci_eigvecs, optimize='optimal')
+            self.dsrg_mrpt3_relax_eigvals = np.einsum('ij,jk,ik->i', self.casci_eigvecs, _ref_relax_hamil, self.casci_eigvecs, optimize='optimal')
             self.dsrg_mrpt3_relax_eigvecs = self.casci_eigvecs
 
         self.e_relax = (np.dot(self.dsrg_mrpt3_relax_eigvals[self.state_avg], self.sa_weights) + self.relax_e_scalar)
