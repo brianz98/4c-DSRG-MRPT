@@ -1057,14 +1057,12 @@ class RelForte:
                     _, self.semicanonicalizer[self.virt,self.virt] = np.linalg.eigh(self.gen_fock_canon[self.virt,self.virt])
                     self.gen_fock_semicanon = np.einsum('ip,ij,jq->pq',np.conj(self.semicanonicalizer), self.gen_fock_canon, self.semicanonicalizer)
                     self.fock = self.gen_fock_semicanon
-                    self.F0 = np.diag(np.diag(self.fock))
-                    self.F1 = np.copy(self.fock - self.F0)
                     self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
                 else:
                     self.semicanonicalizer = np.diag((np.zeros(self.fock.shape[0],dtype=self.dtype)+1.0))
                     self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
-                    self.F0 = np.diag(np.diag(self.fock))
-                    self.F1 = np.copy(self.fock - self.F0)
+                self.F0 = np.diag(np.diag(self.fock))
+                self.F1 = np.copy(self.fock - self.F0)
             if (rdm_level>=2):
                 if (self.cas[0]>=2):
                     _rdms['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
@@ -1086,6 +1084,8 @@ class RelForte:
                 if (rdm_level>=2): _rdms_semican['2rdm'] = np.einsum('ip,jq,ijkl,kr,ls->pqrs', (self.semicanonicalizer_active), self.semicanonicalizer_active, _rdms['2rdm'], np.conj(self.semicanonicalizer_active),np.conj(self.semicanonicalizer_active), optimize='optimal')
                 if (rdm_level>=3): _rdms_semican['3rdm'] = np.einsum('ip,jq,kr,ijklmn,ls,mt,nu->pqrstu', (self.semicanonicalizer_active), self.semicanonicalizer_active, self.semicanonicalizer_active, _rdms['3rdm'], np.conj(self.semicanonicalizer_active),np.conj(self.semicanonicalizer_active), np.conj(self.semicanonicalizer_active), optimize='optimal')
                 _eri = np.einsum('ip,jq,ijkl,kr,ls->pqrs',np.conj(self.semicanonicalizer),np.conj(self.semicanonicalizer),_eri,self.semicanonicalizer,self.semicanonicalizer,optimize='optimal')
+            else:
+                _rdms_semican = _rdms
         _t3 = time.time()
         
         _sa_casci_eigvals = np.dot(self.casci_eigvals[self.state_avg], self.sa_weights)
@@ -1145,7 +1145,7 @@ class RelForte:
         if (rdm_level > 0):
             if (self.verbose): print(f'... RDM build:                {(_t3-_t2):15.7f} s')
             self.rdms_canon = _rdms
-            self.rdms = _rdms
+            self.rdms = _rdms_semican
         if (self.verbose):
             if (len(self.state_avg) > 1):
                 print_energies(np.real(self.casci_eigvals[self.state_avg]+self.e_casci_frzc+self.nuclear_repulsion))
