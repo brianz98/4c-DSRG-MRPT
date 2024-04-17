@@ -919,7 +919,7 @@ class RelForte:
         except AssertionError:
             raise Exception("If not doing FCI then a CAS must be provided via the 'cas' argument!")
 
-        if (self.mf_in is not None):
+        if (self.mf_in is not None and isinstance(self.mf_in, pyscf.mcscf.casci.CASCI)):
             if (isinstance(self.mf_in.fcisolver, pyscf.mcscf.addons.StateAverageFCISolver)):
                 state_avg = np.arange(len(self.mf_in.fcisolver.weights))
                 sa_weights = self.mf_in.fcisolver.weights
@@ -1051,11 +1051,10 @@ class RelForte:
                 self.gen_fock_canon = _hcore.copy() + np.einsum('piqi->pq',_eri[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri[:,self.active,:,self.active],_rdms['1rdm'])
                 self.fock = self.gen_fock_canon
                 if (semi_canonicalize):
-                    _gen_fock_diag = np.zeros_like(self.gen_fock_canon)
-                    _gen_fock_diag[self.core,self.core] = self.gen_fock_canon[self.core,self.core]
-                    _gen_fock_diag[self.active,self.active] = self.gen_fock_canon[self.active,self.active]
-                    _gen_fock_diag[self.virt,self.virt] = self.gen_fock_canon[self.virt,self.virt]
-                    self.gen_fock_eigvals, self.semicanonicalizer = np.linalg.eigh(_gen_fock_diag)
+                    self.semicanonicalizer = np.zeros_like(self.gen_fock_canon)
+                    _, self.semicanonicalizer[self.core,self.core] = np.linalg.eigh(self.gen_fock_canon[self.core,self.core])
+                    _, self.semicanonicalizer[self.active,self.active] = np.linalg.eigh(self.gen_fock_canon[self.active,self.active])
+                    _, self.semicanonicalizer[self.virt,self.virt] = np.linalg.eigh(self.gen_fock_canon[self.virt,self.virt])
                     self.gen_fock_semicanon = np.einsum('ip,ij,jq->pq',np.conj(self.semicanonicalizer), self.gen_fock_canon, self.semicanonicalizer)
                     self.fock = self.gen_fock_semicanon
                     self.F0 = np.diag(np.diag(self.fock))
@@ -1064,6 +1063,8 @@ class RelForte:
                 else:
                     self.semicanonicalizer = np.diag((np.zeros(self.fock.shape[0],dtype=self.dtype)+1.0))
                     self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
+                    self.F0 = np.diag(np.diag(self.fock))
+                    self.F1 = np.copy(self.fock - self.F0)
             if (rdm_level>=2):
                 if (self.cas[0]>=2):
                     _rdms['2rdm'] = get_2_rdm_sa(self.det_strings, self.cas, _psi, self.sa_weights, self.verbose, self.dtype)
@@ -1144,7 +1145,7 @@ class RelForte:
         if (rdm_level > 0):
             if (self.verbose): print(f'... RDM build:                {(_t3-_t2):15.7f} s')
             self.rdms_canon = _rdms
-            self.rdms = _rdms_semican
+            self.rdms = _rdms
         if (self.verbose):
             if (len(self.state_avg) > 1):
                 print_energies(np.real(self.casci_eigvals[self.state_avg]+self.e_casci_frzc+self.nuclear_repulsion))
@@ -1339,11 +1340,10 @@ class RelForte:
 
             _gen_fock_canon = _hcore_canon.copy() + np.einsum('piqi->pq',_eri_canon[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri_canon[:,self.active,:,self.active],self.rdms_canon['1rdm'])
 
-            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype=self.dtype)
-            _gen_fock_diag[self.core,self.core] = _gen_fock_canon[self.core,self.core].copy()
-            _gen_fock_diag[self.active,self.active] = _gen_fock_canon[self.active,self.active].copy()
-            _gen_fock_diag[self.virt,self.virt] = _gen_fock_canon[self.virt,self.virt].copy()
-            _, self.semicanonicalizer = np.linalg.eigh(_gen_fock_diag)
+            self.semicanonicalizer = np.zeros_like(_gen_fock_canon)
+            _, self.semicanonicalizer[self.core,self.core] = np.linalg.eigh(_gen_fock_canon[self.core,self.core])
+            _, self.semicanonicalizer[self.active,self.active] = np.linalg.eigh(_gen_fock_canon[self.active,self.active])
+            _, self.semicanonicalizer[self.virt,self.virt] = np.linalg.eigh(_gen_fock_canon[self.virt,self.virt])
             self.gen_fock_semicanon = np.einsum('ip,ij,jq->pq',np.conj(self.semicanonicalizer), _gen_fock_canon, self.semicanonicalizer)
             self.fock = self.gen_fock_semicanon
             self.F0 = np.diag(np.diag(self.fock))
@@ -1649,11 +1649,10 @@ class RelForte:
 
             _gen_fock_canon = _hcore_canon.copy() + np.einsum('piqi->pq',_eri_canon[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri_canon[:,self.active,:,self.active],self.rdms_canon['1rdm'])
 
-            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype=self.dtype)
-            _gen_fock_diag[self.core,self.core] = _gen_fock_canon[self.core,self.core].copy()
-            _gen_fock_diag[self.active,self.active] = _gen_fock_canon[self.active,self.active].copy()
-            _gen_fock_diag[self.virt,self.virt] = _gen_fock_canon[self.virt,self.virt].copy()
-            _, self.semicanonicalizer = np.linalg.eigh(_gen_fock_diag)
+            self.semicanonicalizer = np.zeros_like(_gen_fock_canon)
+            _, self.semicanonicalizer[self.core,self.core] = np.linalg.eigh(_gen_fock_canon[self.core,self.core])
+            _, self.semicanonicalizer[self.active,self.active] = np.linalg.eigh(_gen_fock_canon[self.active,self.active])
+            _, self.semicanonicalizer[self.virt,self.virt] = np.linalg.eigh(_gen_fock_canon[self.virt,self.virt])
             self.gen_fock_semicanon = np.einsum('ip,ij,jq->pq',np.conj(self.semicanonicalizer), _gen_fock_canon, self.semicanonicalizer)
             self.fock = self.gen_fock_semicanon
             self.semicanonicalizer_active = self.semicanonicalizer[self.active, self.active]
@@ -1919,11 +1918,10 @@ class RelForte:
 
             _gen_fock_canon = _hcore_canon.copy() + np.einsum('piqi->pq',_eri_canon[:,self.core,:,self.core]) + np.einsum('piqj,ij->pq',_eri_canon[:,self.active,:,self.active],self.rdms_canon['1rdm'])
 
-            _gen_fock_diag = np.zeros(_gen_fock_canon.shape, dtype=self.dtype)
-            _gen_fock_diag[self.core,self.core] = _gen_fock_canon[self.core,self.core].copy()
-            _gen_fock_diag[self.active,self.active] = _gen_fock_canon[self.active,self.active].copy()
-            _gen_fock_diag[self.virt,self.virt] = _gen_fock_canon[self.virt,self.virt].copy()
-            _, self.semicanonicalizer = np.linalg.eigh(_gen_fock_diag)
+            self.semicanonicalizer = np.zeros_like(_gen_fock_canon)
+            _, self.semicanonicalizer[self.core,self.core] = np.linalg.eigh(_gen_fock_canon[self.core,self.core])
+            _, self.semicanonicalizer[self.active,self.active] = np.linalg.eigh(_gen_fock_canon[self.active,self.active])
+            _, self.semicanonicalizer[self.virt,self.virt] = np.linalg.eigh(_gen_fock_canon[self.virt,self.virt])
             self.gen_fock_semicanon = np.einsum('ip,ij,jq->pq',np.conj(self.semicanonicalizer), _gen_fock_canon, self.semicanonicalizer)
             self.fock = self.gen_fock_semicanon
             self.F0 = np.diag(np.diag(self.fock))
