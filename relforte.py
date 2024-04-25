@@ -1822,7 +1822,7 @@ class RelForte:
             _hbar1_canon = _hbar1
             _hbar2_canon = _hbar2
 
-        _ref_relax_hamil = form_cas_hamiltonian(_hbar1_canon, _hbar2_canon, self.det_strings, self.verbose, self.dtype, self.cas)
+        _ref_relax_hamil = form_cas_hamiltonian(_hbar1_canon, _hbar2_canon, self.det_strings, self.verbose, self.cas, dtype=self.dtype)
         self.dsrg_mrpt2_relax_eigvals, self.dsrg_mrpt2_relax_eigvecs = np.linalg.eigh(_ref_relax_hamil)
 
         self.e_relax = (np.dot(self.dsrg_mrpt2_relax_eigvals[self.state_avg], self.sa_weights) + _e_scalar)
