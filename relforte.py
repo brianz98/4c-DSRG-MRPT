@@ -760,7 +760,7 @@ class RelForte:
                 print(f'RHF time:                    {_tf-_ti:15.7f} s')
                 print('='*47)
         
-    def run_dhf(self, transform=False, debug=False, frozen=None, with_gaunt=False, with_breit=False, with_ssss=True, dump_mo_coeff=None, algo='disk', erifile=None, fake_dhf=None):
+    def run_dhf(self, transform=False, debug=False, frozen=None, with_gaunt=False, with_breit=False, with_ssss=True, dump_mo_coeff=None, algo='disk', erifile=None, fake_dhf=None, init_guess='minao'):
         _ti = time.time()
 
         if (self.verbose):
@@ -783,6 +783,7 @@ class RelForte:
             f = h5py.File(fake_dhf, 'r')
             self.mf_energy = f['SCF']['TOTAL_ENERGY'][:][0]
         else:
+            self.dhf.init_guess = init_guess
             self.mf_energy = self.dhf.kernel()
             if (self.verbose): 
                 _t0 = time.time()
