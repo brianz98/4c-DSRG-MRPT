@@ -9,7 +9,7 @@ This is a pilot implementation of a four-component multi-reference many-body per
   - Frozen core / deleted virtual approximations
 - NR/4C-MP2
 - NR/4C-CASCI solver
-- NR/4C-DSRG-MRPT2, based on either (NR/4C-)CASCI or (NR/4C-)CASSCF references
+- NR/4C-DSRG-MRPT2/3, based on either (NR/4C-)CASCI or (NR/4C-)CASSCF references
   - Use of semicanonical orbitals
   - Full reference relaxation
   - State-averaging
@@ -18,5 +18,4 @@ This is a pilot implementation of a four-component multi-reference many-body per
 
 ## To-dos
 - [ ] Memory optimization
-- [ ] DSRG-MRPT3
 - [ ] State-averaged ACI
