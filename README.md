@@ -4,7 +4,7 @@ This is a pilot implementation of a four-component multi-reference many-body per
 ## Current capabilities
 - Interface to PySCF, specifically for the Dirac-Hartree-Fock solver and its interface to libcint for integrals. The DC integrals are density fitted, the DCG and DCB cannot be currently density fitted.
 - NR/4C-DHF integral transformation
-  - Ability to read in MO coefficients from other sources, specifically [Psi4](https://psicode.org/psi4manual/master/index.html) and [ChronusQ](https://github.com/xsligroup/chronusq_public/wiki), the latter enables using 4C-CASSCF references.
+  - Ability to read in MO coefficients from other sources, specifically [PySCF](https://pyscf.org/index.html), [Psi4](https://psicode.org/psi4manual/master/index.html) and [ChronusQ](https://github.com/xsligroup/chronusq_public/wiki), the latter enables using 4C-CASSCF references.
   - Density fitting is available throughout the code
   - Frozen core / deleted virtual approximations
 - NR/4C-MP2
