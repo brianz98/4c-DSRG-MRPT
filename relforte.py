@@ -30,9 +30,9 @@ def zero_mat(mat):
     mat[np.abs(mat) < 1e-12] = 0
     return mat
 
-def antisymmetrize_and_hermitize(T):
+def antisymmetrize_and_hermitize(T, herm=True):
     # antisymmetrize the residual
-    T += np.einsum("ijab->abij",T.conj()) # This is the Hermitized version (i.e., [H,A]), which should then be antisymmetrized
+    if herm: T += np.einsum("ijab->abij",T.conj()) # This is the Hermitized version (i.e., [H,A]), which should then be antisymmetrized
     temp = T.copy()
     T -= np.einsum("ijab->jiab", temp)
     T += np.einsum("ijab->jiba", temp)
@@ -1836,7 +1836,7 @@ class RelForte:
         self.e_dsrg_mrpt2_relaxed = (self.e_casci + self.e_dsrg_mrpt2 + self.e_relax).real
         self.dsrg_mrpt2_relax_eigvals_shifted = (self.e_casci + self.e_dsrg_mrpt2 + self.dsrg_mrpt2_relax_eigvals + _e_scalar)
 
-    def run_mr_ldsrg2(self, s, relativistic, relax=None, relax_convergence=1e-8, maxiter=20, maxiter_relax=8, max_ncomm=10, e_tol=1e-8):
+    def run_mr_ldsrg2(self, s, relativistic, relax=None, relax_convergence=1e-8, maxiter=20, maxiter_relax=8, max_ncomm=10, e_tol=1e-8, herm=True):
         self.relax = relax
         if (relativistic):           
             _eri = self.eri
@@ -1875,7 +1875,7 @@ class RelForte:
 
         _t2 = time.time()
         self.converged = False
-        self.mr_ldsrg2_update(s, _eri, max_ncomm, maxiter, e_tol)
+        self.mr_ldsrg2_update(s, _eri, max_ncomm, maxiter, e_tol, herm=herm)
         _verbose = self.verbose
 
         if (nrelax > 0):
@@ -1948,7 +1948,7 @@ class RelForte:
             self.e_casci = self.e_casci.real
             if (_verbose): print(f'   -Eref  {self.e_casci:.7f}       ')
             
-            self.mr_ldsrg2_update(s, _eri)
+            self.mr_ldsrg2_update(s, _eri, herm=herm)
             if (_verbose): print(f'   -Ecorr {self.e_mr_ldsrg2.real:.7f}       ')
             
         self.verbose = _verbose
@@ -1990,7 +1990,7 @@ class RelForte:
             print(f'Time taken:                  {_t1-_t0:15.7f} s')
             print('='*47)
     
-    def mr_ldsrg2_reference_relaxation(self, _eri):
+    def mr_ldsrg2_reference_relaxation(self, _eri, herm=True):
         hbar_aa = self.hbar_1b[self.active,self.active].copy()
         hbar_aaaa = self.hbar_2b[self.active,self.active,self.active,self.active].copy()
 
@@ -2018,7 +2018,7 @@ class RelForte:
         self.e_mr_ldsrg2_relaxed = (self.e_casci + self.e_mr_ldsrg2 + self.e_relax).real
         self.mr_ldsrg2_relax_eigvals_shifted = (self.e_casci + self.e_mr_ldsrg2 + self.mr_ldsrg2_relax_eigvals + self.relax_e_scalar)
 
-    def mr_ldsrg2_update(self, s, _eri, max_ncomm=12, maxiter=20, e_tol=1e-8):
+    def mr_ldsrg2_update(self, s, _eri, max_ncomm=12, maxiter=20, e_tol=1e-8, herm=True):
         self.cumulants = make_cumulants(self.rdms)
         self.form_denominators(s)
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], \
@@ -2041,7 +2041,7 @@ class RelForte:
         print('-'*50)
         while iter < maxiter:
             # self.check_convergence()
-            ncomm = self.compute_hbar(_eri, max_ncomm)
+            ncomm = self.compute_hbar(_eri, max_ncomm, herm=herm)
             print(f'{iter:<10}{self.e_mr_ldsrg2.real:<15.10f}{(self.e_mr_ldsrg2 - e_old).real:<15.10f}{ncomm:<10}')
             if abs(self.e_mr_ldsrg2 - e_old) < e_tol:
                 print('-'*50)
@@ -2057,7 +2057,7 @@ class RelForte:
         self.T1[self.ha,self.pa] = .0
         self.T2[self.ha,self.ha,self.pa,self.pa] = .0
 
-    def compute_hbar(self, _eri, max_ncomm=12):
+    def compute_hbar(self, _eri, max_ncomm=12, herm=True):
         fixed_args = (self.cumulants['gamma1'], self.cumulants['eta1'], \
                       self.cumulants['lambda2'], self.cumulants['lambda3'], self)
         self.hbar_1b = self.fock.copy()
@@ -2070,7 +2070,7 @@ class RelForte:
         o2 = np.zeros_like(o2_old)
         ncomm = 0
         while ncomm < max_ncomm:
-            o0 = H_T_C0(None, None, o1_old, o2_old, self.T1, self.T2, *fixed_args, scale=2.0)
+            o0 = H_T_C0(None, None, o1_old, o2_old, self.T1, self.T2, *fixed_args, scale=2.0 if herm else 1.0)
             H1_T1_C1(o1,None,o1_old,o2_old,self.T1,self.T2,*fixed_args)
             H1_T2_C1(o1,None,o1_old,o2_old,self.T1,self.T2,*fixed_args)
             H2_T1_C1(o1,None,o1_old,o2_old,self.T1,self.T2,*fixed_args)
@@ -2078,8 +2078,8 @@ class RelForte:
             H1_T2_C2(None,o2,o1_old,o2_old,self.T1,self.T2,*fixed_args)
             H2_T1_C2(None,o2,o1_old,o2_old,self.T1,self.T2,*fixed_args)
             H2_T2_C2(None,o2,o1_old,o2_old,self.T1,self.T2,*fixed_args)
-            o1 += o1.T.conj()
-            antisymmetrize_and_hermitize(o2)
+            if herm: o1 += o1.T.conj()
+            antisymmetrize_and_hermitize(o2, herm=herm)
             ncomm += 1
             o0 /= ncomm
             o1 /= ncomm
