@@ -339,6 +339,12 @@ def get_3_rdm_sa(det_strings, cas, states, weights, verbose, dtype):
     return _sa_rdm
 
 def get_1_rdm(det_strings, cas, psi, verbose, dtype):
+    return pyscf.fci.fci_dhf_slow.make_rdm12(psi, cas[1], cas[0], reorder=True)[0]
+
+def get_2_rdm(det_strings, cas, psi, verbose, dtype):
+    return pyscf.fci.fci_dhf_slow.make_rdm12(psi, cas[1], cas[0], reorder=True)[1].transpose(0,2,1,3) # pyscf rdm2[p,q,r,s] is gamma2^{pr}_{qs}
+
+def get_1_rdm_slow(det_strings, cas, psi, verbose, dtype):
     _t0 = time.time()
     _rdm = np.zeros((cas[1],cas[1]), dtype=dtype)
     for i in range(len(det_strings)):
@@ -354,7 +360,7 @@ def get_1_rdm(det_strings, cas, psi, verbose, dtype):
     if (verbose): print(f'Time taken for 1-RDM build:  {(_t1-_t0):15.7f} s')
     return _rdm
 
-def get_2_rdm(det_strings, cas, psi, verbose, dtype):
+def get_2_rdm_slow(det_strings, cas, psi, verbose, dtype):
     _t0 = time.time()
     _rdm = np.zeros((cas[1],cas[1],cas[1],cas[1]), dtype=dtype)
     if (cas[0] < 2): return _rdm
