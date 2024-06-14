@@ -1,0 +1,1586 @@
+NOW DOING s=0.017!
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       0.5112870 s
+
+===============================================
+            Relativistic CASCI(3,8)            
+===============================================
+Will now allocate 0.050 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0056584 s
+Time taken for 1-RDM build:        0.0056221 s
+Time taken for 1-RDM build:        0.0056112 s
+Time taken for 1-RDM build:        0.0056195 s
+Time taken for 1-RDM build:        0.0056138 s
+Time taken for 1-RDM build:        0.0056238 s
+Time taken for 2-RDM build:        0.0249827 s
+Time taken for 2-RDM build:        0.0230360 s
+Time taken for 2-RDM build:        0.0230191 s
+Time taken for 2-RDM build:        0.0230126 s
+Time taken for 2-RDM build:        0.0229795 s
+Time taken for 2-RDM build:        0.0230429 s
+Time taken for 3-RDM build:        0.0648234 s
+Time taken for 3-RDM build:        0.0647414 s
+Time taken for 3-RDM build:        0.0639744 s
+Time taken for 3-RDM build:        0.0638525 s
+Time taken for 3-RDM build:        0.0637960 s
+Time taken for 3-RDM build:        0.0639656 s
+E_frzc:                          -21.9899228 Eh
+E_cas:                            -2.5754278 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                         -24.5653104 Eh
+E0 (from RDM):                   -24.5653104 Eh
+Ecorr:                            -0.2764703 Eh
+
+Timing summary
+... Hamil build:                    0.0165057 s
+... Hamil diag:                     0.0005686 s
+... RDM build:                      1.7207022 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.4565351e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.4565351e+01      +1.6292141e-09      +3.5757116e-04      +4.4333195e-05      
+2         -2.4565290e+01      +6.0370290e-05      +1.3249747e+01      +1.6427601e+00      
+3         -2.4565290e+01      +8.2750518e-10      +1.8161639e-04      +2.2517574e-05      
+4         -2.4565290e+01      +8.6880192e-10      +1.9067998e-04      +2.3641316e-05      
+5         -2.4565290e+01      +1.8699744e-09      +4.1041194e-04      +5.0884619e-05      
+Total time taken:                   1.8410437 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:       7.5599556 s
+... compute_energy_pt2:       0.0502892 s
+... compute_energy_pt3_2:       6.2471383 s
+... compute_energy_pt3_3:       1.6129370 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -24.5653104       
+   -Ecorr -0.0481762       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -24.6134866         -2.46135e+01
+   -Erelax-0.0000325       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -24.6135191         -3.25235e-05
+   -Eref  -24.5652774       
+   -Ecorr -0.0482421       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -24.6135195         -3.65096e-07
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -24.6135195         -3.24043e-11
+   -Eref  -24.5652773       
+   -Ecorr -0.0482422       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -24.6135195         -3.50667e-10
+   -Erelax-0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -24.6135195         0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:               -24.6134866 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.0481762 Eh
+Partially relaxed DSRG-MRPT3 energy:       -24.6135191 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.0482088 Eh
+Relaxed DSRG-MRPT3 energy:                 -24.6135195 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.0482421 Eh
+Fully relaxed DSRG-MRPT3 energy:           -24.6135195 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.0482422 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.4613562e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.4613562e+01      +1.4238921e-09      +3.1250820e-04      +3.8746096e-05      
+2         -2.4613498e+01      +6.3027770e-05      +1.3832997e+01      +1.7150738e+00      
+3         -2.4613498e+01      +6.9526962e-10      +1.5259404e-04      +1.8919259e-05      
+4         -2.4613498e+01      +7.5590734e-10      +1.6590248e-04      +2.0569296e-05      
+5         -2.4613498e+01      +1.6208013e-09      +3.5572476e-04      +4.4104270e-05      
+Time taken:                       57.8065774 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       0.5135417 s
+
+===============================================
+            Relativistic CASCI(4,8)            
+===============================================
+Will now allocate 0.078 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0082519 s
+Time taken for 1-RDM build:        0.0081255 s
+Time taken for 1-RDM build:        0.0081012 s
+Time taken for 1-RDM build:        0.0080769 s
+Time taken for 1-RDM build:        0.0081265 s
+Time taken for 1-RDM build:        0.0080981 s
+Time taken for 1-RDM build:        0.0081100 s
+Time taken for 1-RDM build:        0.0080884 s
+Time taken for 1-RDM build:        0.0081317 s
+Time taken for 2-RDM build:        0.0370491 s
+Time taken for 2-RDM build:        0.0347071 s
+Time taken for 2-RDM build:        0.0347888 s
+Time taken for 2-RDM build:        0.0347409 s
+Time taken for 2-RDM build:        0.0347903 s
+Time taken for 2-RDM build:        0.0347178 s
+Time taken for 2-RDM build:        0.0347562 s
+Time taken for 2-RDM build:        0.0347340 s
+Time taken for 2-RDM build:        0.0348268 s
+Time taken for 3-RDM build:        0.1520700 s
+Time taken for 3-RDM build:        0.1508272 s
+Time taken for 3-RDM build:        0.1507010 s
+Time taken for 3-RDM build:        0.1507306 s
+Time taken for 3-RDM build:        0.1506846 s
+Time taken for 3-RDM build:        0.1506691 s
+Time taken for 3-RDM build:        0.1507914 s
+Time taken for 3-RDM build:        0.1506472 s
+Time taken for 3-RDM build:        0.1507127 s
+E_frzc:                          -32.3709352 Eh
+E_cas:                            -5.3467114 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                         -37.7175257 Eh
+E0 (from RDM):                   -37.7175257 Eh
+Ecorr:                            -0.4429083 Eh
+
+Timing summary
+... Hamil build:                    0.0256341 s
+... Hamil diag:                     0.0009665 s
+... RDM build:                      2.8400435 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -3.7717647e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -3.7717578e+01      +6.8056777e-05      +1.4936736e+01      +1.8519201e+00      
+2         -3.7717578e+01      +1.0789947e-09      +2.3681196e-04      +2.9360955e-05      
+3         -3.7717578e+01      +1.2285639e-09      +2.6963861e-04      +3.3430943e-05      
+4         -3.7717470e+01      +1.0852195e-04      +2.3817815e+01      +2.9530341e+00      
+5         -3.7717470e+01      +3.7324810e-10      +8.1918488e-05      +1.0156603e-05      
+6         -3.7717470e+01      +9.5213437e-10      +2.0896934e-04      +2.5908908e-05      
+7         -3.7717470e+01      +4.4995119e-10      +9.8752870e-05      +1.2243801e-05      
+8         -3.7717470e+01      +5.6218852e-10      +1.2338612e-04      +1.5297936e-05      
+Total time taken:                   2.9704144 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:       7.3779116 s
+... compute_energy_pt2:       0.0500064 s
+... compute_energy_pt3_2:       6.3059864 s
+... compute_energy_pt3_3:       1.5829060 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -37.7175257       
+   -Ecorr -0.0666573       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -37.7841831         -3.77842e+01
+   -Erelax-0.0000301       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -37.7842131         -3.00719e-05
+   -Eref  -37.7174952       
+   -Ecorr -0.0667251       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -37.7842203         -7.14403e-06
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -37.7842203         -2.26663e-12
+   -Eref  -37.7174952       
+   -Ecorr -0.0667251       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -37.7842203         -1.83788e-09
+   -Erelax0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -37.7842203         7.10543e-15
+Unrelaxed DSRG-MRPT3 energy:               -37.7841831 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.0666573 Eh
+Partially relaxed DSRG-MRPT3 energy:       -37.7842131 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.0666874 Eh
+Relaxed DSRG-MRPT3 energy:                 -37.7842203 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.0667251 Eh
+Fully relaxed DSRG-MRPT3 energy:           -37.7842203 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.0667251 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -3.7784348e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -3.7784277e+01      +7.1207902e-05      +1.5628328e+01      +1.9376666e+00      
+2         -3.7784277e+01      +9.0462748e-10      +1.9854278e-04      +2.4616179e-05      
+3         -3.7784277e+01      +9.9871755e-10      +2.1919317e-04      +2.7176502e-05      
+4         -3.7784161e+01      +1.1594116e-04      +2.5446143e+01      +3.1549211e+00      
+5         -3.7784161e+01      +3.1602809e-10      +6.9360149e-05      +8.5995665e-06      
+6         -3.7784161e+01      +7.0629369e-10      +1.5501355e-04      +1.9219239e-05      
+7         -3.7784161e+01      +4.0736126e-10      +8.9405461e-05      +1.1084870e-05      
+8         -3.7784161e+01      +4.3004889e-10      +9.4384820e-05      +1.1702232e-05      
+Time taken:                       60.6945505 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       0.5161729 s
+
+===============================================
+            Relativistic CASCI(5,8)            
+===============================================
+Will now allocate 0.050 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0056665 s
+Time taken for 1-RDM build:        0.0056789 s
+Time taken for 1-RDM build:        0.0056374 s
+Time taken for 1-RDM build:        0.0056324 s
+Time taken for 1-RDM build:        0.0056674 s
+Time taken for 1-RDM build:        0.0056474 s
+Time taken for 1-RDM build:        0.0056479 s
+Time taken for 1-RDM build:        0.0056636 s
+Time taken for 1-RDM build:        0.0056357 s
+Time taken for 1-RDM build:        0.0056441 s
+Time taken for 1-RDM build:        0.0056238 s
+Time taken for 1-RDM build:        0.0056412 s
+Time taken for 1-RDM build:        0.0056350 s
+Time taken for 1-RDM build:        0.0056739 s
+Time taken for 2-RDM build:        0.0275562 s
+Time taken for 2-RDM build:        0.0253327 s
+Time taken for 2-RDM build:        0.0253639 s
+Time taken for 2-RDM build:        0.0253797 s
+Time taken for 2-RDM build:        0.0253479 s
+Time taken for 2-RDM build:        0.0283525 s
+Time taken for 2-RDM build:        0.0314963 s
+Time taken for 2-RDM build:        0.0260701 s
+Time taken for 2-RDM build:        0.0264552 s
+Time taken for 2-RDM build:        0.0259652 s
+Time taken for 2-RDM build:        0.0253735 s
+Time taken for 2-RDM build:        0.0253470 s
+Time taken for 2-RDM build:        0.0254054 s
+Time taken for 2-RDM build:        0.0253696 s
+Time taken for 3-RDM build:        0.1496999 s
+Time taken for 3-RDM build:        0.1478922 s
+Time taken for 3-RDM build:        0.1481798 s
+Time taken for 3-RDM build:        0.1479540 s
+Time taken for 3-RDM build:        0.1478655 s
+Time taken for 3-RDM build:        0.1477971 s
+Time taken for 3-RDM build:        0.1479301 s
+Time taken for 3-RDM build:        0.1477373 s
+Time taken for 3-RDM build:        0.1477118 s
+Time taken for 3-RDM build:        0.1477416 s
+Time taken for 3-RDM build:        0.1477733 s
+Time taken for 3-RDM build:        0.1476142 s
+Time taken for 3-RDM build:        0.1478479 s
+Time taken for 3-RDM build:        0.1476951 s
+E_frzc:                          -44.7567199 Eh
+E_cas:                            -9.6666253 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                         -54.3487687 Eh
+E0 (from RDM):                   -54.3487687 Eh
+Ecorr:                            -0.4454114 Eh
+
+Timing summary
+... Hamil build:                    0.0208018 s
+... Hamil diag:                     0.0004780 s
+... RDM build:                      3.6299529 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -5.4423345e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -5.4423345e+01      +1.0766144e-09      +2.3628954e-04      +2.9296183e-05      
+2         -5.4423345e+01      +1.0765220e-09      +2.3626926e-04      +2.9293669e-05      
+3         -5.4423345e+01      +1.0763941e-09      +2.3624119e-04      +2.9290189e-05      
+4         -5.4318958e+01      +1.0438692e-01      +2.2910281e+04      +2.8405142e+03      
+5         -5.4318958e+01      +1.1012489e-09      +2.4169619e-04      +2.9966522e-05      
+6         -5.4318958e+01      +1.1371313e-09      +2.4957147e-04      +3.0942933e-05      
+7         -5.4318958e+01      +5.9976912e-10      +1.3163411e-04      +1.6320557e-05      
+8         -5.4318958e+01      +1.1947563e-09      +2.6221870e-04      +3.2510990e-05      
+9         -5.4318958e+01      +1.3782895e-09      +3.0249957e-04      +3.7505185e-05      
+10        -5.4318908e+01      +5.0508872e-05      +1.1085416e+01      +1.3744171e+00      
+11        -5.4318908e+01      +3.9502694e-09      +8.6698392e-04      +1.0749236e-04      
+12        -5.4318908e+01      +3.0347778e-09      +6.6605673e-04      +8.2580549e-05      
+13        -5.4318908e+01      +2.9868943e-09      +6.5554752e-04      +8.1277572e-05      
+Total time taken:                   3.7548225 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:       7.4592652 s
+... compute_energy_pt2:       0.0500939 s
+... compute_energy_pt3_2:       6.3479607 s
+... compute_energy_pt3_3:       1.6357429 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -54.3487687       
+   -Ecorr -0.1025208       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -54.4512895         -5.44513e+01
+   -Erelax-0.0000000       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -54.4512895         -3.55639e-09
+   -Eref  -54.3487687       
+   -Ecorr -0.1025208       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -54.4512895         -1.19022e-09
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -54.4512895         -1.63425e-13
+Unrelaxed DSRG-MRPT3 energy:               -54.4512895 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.1025208 Eh
+Partially relaxed DSRG-MRPT3 energy:       -54.4512895 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.1025208 Eh
+Relaxed DSRG-MRPT3 energy:                 -54.4512895 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.1025208 Eh
+Fully relaxed DSRG-MRPT3 energy:           -54.4512895 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.1025208 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -5.4521386e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -5.4521386e+01      +1.0052617e-09      +2.2062943e-04      +2.7354576e-05      
+2         -5.4521386e+01      +1.0052332e-09      +2.2062319e-04      +2.7353803e-05      
+3         -5.4521386e+01      +1.0051053e-09      +2.2059512e-04      +2.7350322e-05      
+4         -5.4423271e+01      +9.8115529e-02      +2.1533869e+04      +2.6698608e+03      
+5         -5.4423271e+01      +8.8920160e-10      +1.9515719e-04      +2.4196420e-05      
+6         -5.4423271e+01      +8.3196028e-10      +1.8259417e-04      +2.2638803e-05      
+7         -5.4423271e+01      +5.4380678e-10      +1.1935179e-04      +1.4797743e-05      
+8         -5.4423271e+01      +8.4069995e-10      +1.8451231e-04      +2.2876622e-05      
+9         -5.4423271e+01      +9.8033581e-10      +2.1515884e-04      +2.6676309e-05      
+10        -5.4423221e+01      +4.9223750e-05      +1.0803364e+01      +1.3394471e+00      
+11        -5.4423221e+01      +2.6516176e-09      +5.8196279e-04      +7.2154224e-05      
+12        -5.4423221e+01      +2.0947368e-09      +4.5974159e-04      +5.7000720e-05      
+13        -5.4423221e+01      +2.0203856e-09      +4.4342339e-04      +5.4977520e-05      
+Time taken:                       39.6517158 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       0.5117433 s
+
+===============================================
+            Relativistic CASCI(6,8)            
+===============================================
+Will now allocate 0.013 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0022233 s
+Time taken for 1-RDM build:        0.0021844 s
+Time taken for 1-RDM build:        0.0021982 s
+Time taken for 1-RDM build:        0.0022106 s
+Time taken for 1-RDM build:        0.0021935 s
+Time taken for 1-RDM build:        0.0021939 s
+Time taken for 1-RDM build:        0.0021927 s
+Time taken for 1-RDM build:        0.0021992 s
+Time taken for 1-RDM build:        0.0022089 s
+Time taken for 2-RDM build:        0.0098138 s
+Time taken for 2-RDM build:        0.0095766 s
+Time taken for 2-RDM build:        0.0086026 s
+Time taken for 2-RDM build:        0.0085714 s
+Time taken for 2-RDM build:        0.0085788 s
+Time taken for 2-RDM build:        0.0085795 s
+Time taken for 2-RDM build:        0.0085566 s
+Time taken for 2-RDM build:        0.0085492 s
+Time taken for 2-RDM build:        0.0085373 s
+Time taken for 3-RDM build:        0.0675540 s
+Time taken for 3-RDM build:        0.0658717 s
+Time taken for 3-RDM build:        0.0658581 s
+Time taken for 3-RDM build:        0.0658422 s
+Time taken for 3-RDM build:        0.0659571 s
+Time taken for 3-RDM build:        0.0660038 s
+Time taken for 3-RDM build:        0.0658872 s
+Time taken for 3-RDM build:        0.0659003 s
+Time taken for 3-RDM build:        0.0659413 s
+E_frzc:                          -59.1480236 Eh
+E_cas:                           -15.7034833 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                         -74.8511626 Eh
+E0 (from RDM):                   -74.8511626 Eh
+Ecorr:                            -0.3302227 Eh
+
+Timing summary
+... Hamil build:                    0.0085347 s
+... Hamil diag:                     0.0002134 s
+... RDM build:                      1.7803049 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -7.4851507e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -7.4851507e+01      +6.1121170e-09      +1.3414546e-03      +1.6631926e-04      
+2         -7.4851507e+01      +6.8041430e-09      +1.4933368e-03      +1.8515025e-04      
+3         -7.4851507e+01      +7.2887332e-09      +1.5996920e-03      +1.9833663e-04      
+4         -7.4851507e+01      +9.8174127e-09      +2.1546730e-03      +2.6714553e-04      
+5         -7.4850809e+01      +6.9818897e-04      +1.5323477e+02      +1.8998699e+01      
+6         -7.4850809e+01      +7.3982136e-09      +1.6237202e-03      +2.0131574e-04      
+7         -7.4850809e+01      +7.5923197e-09      +1.6663215e-03      +2.0659764e-04      
+8         -7.4850503e+01      +3.0523771e-04      +6.6991933e+01      +8.3059451e+00      
+Total time taken:                   1.8923855 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:       7.3287890 s
+... compute_energy_pt2:       0.0499549 s
+... compute_energy_pt3_2:       6.1490605 s
+... compute_energy_pt3_3:       1.5769358 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -74.8511626       
+   -Ecorr -0.1493392       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -75.0005018         -7.50005e+01
+   -Erelax-0.0000000       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -75.0005018         -1.18709e-08
+   -Eref  -74.8511626       
+   -Ecorr -0.1493392       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -75.0005018         -1.09179e-08
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -75.0005018         -1.23634e-12
+   -Eref  -74.8511626       
+   -Ecorr -0.1493392       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -75.0005018         1.16032e-10
+   -Erelax-0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -75.0005018         -5.68434e-14
+Unrelaxed DSRG-MRPT3 energy:               -75.0005018 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.1493392 Eh
+Partially relaxed DSRG-MRPT3 energy:       -75.0005018 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.1493392 Eh
+Relaxed DSRG-MRPT3 energy:                 -75.0005018 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.1493392 Eh
+Fully relaxed DSRG-MRPT3 energy:           -75.0005018 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.1493392 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -7.5000854e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -7.5000854e+01      +6.8488220e-09      +1.5031427e-03      +1.8636603e-04      
+2         -7.5000854e+01      +7.5252444e-09      +1.6516002e-03      +2.0477243e-04      
+3         -7.5000854e+01      +7.8455855e-09      +1.7219070e-03      +2.1348936e-04      
+4         -7.5000854e+01      +9.3664170e-09      +2.0556909e-03      +2.5487331e-04      
+5         -7.5000140e+01      +7.1457878e-04      +1.5683191e+02      +1.9444688e+01      
+6         -7.5000140e+01      +7.9912184e-09      +1.7538697e-03      +2.1745223e-04      
+7         -7.5000140e+01      +7.8668307e-09      +1.7265698e-03      +2.1406747e-04      
+8         -7.4999827e+01      +3.1260328e-04      +6.8608490e+01      +8.5063727e+00      
+Time taken:                       57.7117107 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       0.5133536 s
+
+===============================================
+            Relativistic CASCI(7,8)            
+===============================================
+Will now allocate 0.001 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0003815 s
+Time taken for 1-RDM build:        0.0003657 s
+Time taken for 1-RDM build:        0.0003617 s
+Time taken for 1-RDM build:        0.0003636 s
+Time taken for 1-RDM build:        0.0003653 s
+Time taken for 1-RDM build:        0.0003617 s
+Time taken for 2-RDM build:        0.0011790 s
+Time taken for 2-RDM build:        0.0011353 s
+Time taken for 2-RDM build:        0.0011404 s
+Time taken for 2-RDM build:        0.0011451 s
+Time taken for 2-RDM build:        0.0011365 s
+Time taken for 2-RDM build:        0.0011339 s
+Time taken for 3-RDM build:        0.0171933 s
+Time taken for 3-RDM build:        0.0123169 s
+Time taken for 3-RDM build:        0.0123351 s
+Time taken for 3-RDM build:        0.0123293 s
+Time taken for 3-RDM build:        0.0123346 s
+Time taken for 3-RDM build:        0.0123365 s
+E_frzc:                          -75.5478008 Eh
+E_cas:                           -23.9325131 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                         -99.4797328 Eh
+E0 (from RDM):                   -99.4797328 Eh
+Ecorr:                            -0.1043819 Eh
+
+Timing summary
+... Hamil build:                    0.0017586 s
+... Hamil diag:                     0.0000768 s
+... RDM build:                      1.1742890 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -9.9480314e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -9.9480314e+01      +2.4031038e-08      +5.2742033e-03      +6.5391818e-04      
+2         -9.9480314e+01      +6.9549486e-09      +1.5264348e-03      +1.8925388e-04      
+3         -9.9480314e+01      +2.1663141e-08      +4.7545098e-03      +5.8948436e-04      
+4         -9.9478571e+01      +1.7431739e-03      +3.8258245e+02      +4.7434202e+01      
+5         -9.9478571e+01      +1.6993980e-08      +3.7297474e-03      +4.6242996e-04      
+Total time taken:                   1.2800667 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:       7.5799868 s
+... compute_energy_pt2:       0.0504990 s
+... compute_energy_pt3_2:       6.3313544 s
+... compute_energy_pt3_3:       1.5774822 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -99.4797328       
+   -Ecorr -0.2118765       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -99.6916093         -9.96916e+01
+   -Erelax-0.0000000       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -99.6916093         -1.42109e-14
+   -Eref  -99.4797328       
+   -Ecorr -0.2118765       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -99.6916093         1.42109e-14
+   -Erelax0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -99.6916093         1.42109e-14
+Unrelaxed DSRG-MRPT3 energy:               -99.6916093 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.2118765 Eh
+Partially relaxed DSRG-MRPT3 energy:       -99.6916093 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.2118765 Eh
+Relaxed DSRG-MRPT3 energy:                 -99.6916093 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.2118765 Eh
+Fully relaxed DSRG-MRPT3 energy:           -99.6916093 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.2118765 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -9.9692206e+01      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -9.9692206e+01      +2.0470111e-08      +4.4926700e-03      +5.5702036e-04      
+2         -9.9692206e+01      +7.2264754e-09      +1.5860280e-03      +1.9664251e-04      
+3         -9.9692206e+01      +1.8811761e-08      +4.1287043e-03      +5.1189434e-04      
+4         -9.9690416e+01      +1.7901088e-03      +3.9288346e+02      +4.8711364e+01      
+5         -9.9690416e+01      +1.5086783e-08      +3.3111662e-03      +4.1053248e-04      
+Time taken:                       37.1162777 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       1.8764844 s
+
+===============================================
+            Relativistic CASCI(3,8)            
+===============================================
+Will now allocate 0.050 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0056436 s
+Time taken for 1-RDM build:        0.0055964 s
+Time taken for 1-RDM build:        0.0056252 s
+Time taken for 1-RDM build:        0.0055978 s
+Time taken for 1-RDM build:        0.0056157 s
+Time taken for 1-RDM build:        0.0056069 s
+Time taken for 2-RDM build:        0.0230515 s
+Time taken for 2-RDM build:        0.0229259 s
+Time taken for 2-RDM build:        0.0229311 s
+Time taken for 2-RDM build:        0.0229852 s
+Time taken for 2-RDM build:        0.0229399 s
+Time taken for 2-RDM build:        0.0229251 s
+Time taken for 3-RDM build:        0.0650313 s
+Time taken for 3-RDM build:        0.0640438 s
+Time taken for 3-RDM build:        0.0639675 s
+Time taken for 3-RDM build:        0.0640135 s
+Time taken for 3-RDM build:        0.0639610 s
+Time taken for 3-RDM build:        0.0639410 s
+E_frzc:                         -240.4061812 Eh
+E_cas:                            -1.8986420 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                        -242.3045291 Eh
+E0 (from RDM):                  -242.3045291 Eh
+Ecorr:                            -0.1899047 Eh
+
+Timing summary
+... Hamil build:                    0.0163472 s
+... Hamil diag:                     0.0004556 s
+... RDM build:                      3.6872220 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.4230482e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.4230482e+02      +1.0992665e-09      +2.4126110e-04      +2.9912578e-05      
+2         -2.4230438e+02      +4.4107881e-04      +9.6805609e+01      +1.2002372e+01      
+3         -2.4230438e+02      +1.0805650e-09      +2.3715660e-04      +2.9403685e-05      
+4         -2.4230438e+02      +8.9775654e-10      +1.9703478e-04      +2.4429211e-05      
+5         -2.4230438e+02      +3.6629899e-10      +8.0393336e-05      +9.9675080e-06      
+Total time taken:                   4.0337670 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:      27.5071006 s
+... compute_energy_pt2:       0.1376417 s
+... compute_energy_pt3_2:      22.6181972 s
+... compute_energy_pt3_3:       5.6302414 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -242.3045291       
+   -Ecorr -0.1735478       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -242.4780769        -2.42478e+02
+   -Erelax-0.0000079       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -242.4780848        -7.88422e-06
+   -Eref  -242.3045212       
+   -Ecorr -0.1735640       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -242.4780852        -4.11173e-07
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -242.4780852        -1.27898e-12
+   -Eref  -242.3045212       
+   -Ecorr -0.1735640       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -242.4780852        -1.63880e-10
+   -Erelax-0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -242.4780852        0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:              -242.4780769 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.1735478 Eh
+Partially relaxed DSRG-MRPT3 energy:      -242.4780848 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.1735557 Eh
+Relaxed DSRG-MRPT3 energy:                -242.4780852 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.1735640 Eh
+Fully relaxed DSRG-MRPT3 energy:          -242.4780852 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.1735640 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.4247839e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.4247839e+02      +1.0623182e-09      +2.3315190e-04      +2.8907165e-05      
+2         -2.4247794e+02      +4.5026586e-04      +9.8821932e+01      +1.2252364e+01      
+3         -2.4247794e+02      +1.0431620e-09      +2.2894759e-04      +2.8385897e-05      
+4         -2.4247794e+02      +8.5825036e-10      +1.8836418e-04      +2.3354193e-05      
+5         -2.4247794e+02      +3.5308290e-10      +7.7492738e-05      +9.6078796e-06      
+Time taken:                      216.2718272 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       1.9383018 s
+
+===============================================
+            Relativistic CASCI(4,8)            
+===============================================
+Will now allocate 0.078 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0082538 s
+Time taken for 1-RDM build:        0.0080497 s
+Time taken for 1-RDM build:        0.0080435 s
+Time taken for 1-RDM build:        0.0080473 s
+Time taken for 1-RDM build:        0.0079989 s
+Time taken for 1-RDM build:        0.0080228 s
+Time taken for 1-RDM build:        0.0080490 s
+Time taken for 1-RDM build:        0.0080431 s
+Time taken for 1-RDM build:        0.0080583 s
+Time taken for 2-RDM build:        0.0346792 s
+Time taken for 2-RDM build:        0.0345657 s
+Time taken for 2-RDM build:        0.0345380 s
+Time taken for 2-RDM build:        0.0346878 s
+Time taken for 2-RDM build:        0.0346951 s
+Time taken for 2-RDM build:        0.0346365 s
+Time taken for 2-RDM build:        0.0346465 s
+Time taken for 2-RDM build:        0.0346963 s
+Time taken for 2-RDM build:        0.0346210 s
+Time taken for 3-RDM build:        0.1514676 s
+Time taken for 3-RDM build:        0.1504307 s
+Time taken for 3-RDM build:        0.1505833 s
+Time taken for 3-RDM build:        0.1503801 s
+Time taken for 3-RDM build:        0.1503832 s
+Time taken for 3-RDM build:        0.1503375 s
+Time taken for 3-RDM build:        0.1505060 s
+Time taken for 3-RDM build:        0.1504304 s
+Time taken for 3-RDM build:        0.1504116 s
+E_frzc:                         -285.7423197 Eh
+E_cas:                            -3.6921024 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                        -289.4337768 Eh
+E0 (from RDM):                  -289.4337768 Eh
+Ecorr:                            -0.2329780 Eh
+
+Timing summary
+... Hamil build:                    0.0257173 s
+... Hamil diag:                     0.0010142 s
+... RDM build:                      4.8526256 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.8943442e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.8943409e+02      +3.3211201e-04      +7.2890160e+01      +9.0372324e+00      
+2         -2.8943409e+02      +8.1735152e-10      +1.7938792e-04      +2.2241278e-05      
+3         -2.8943409e+02      +8.9210062e-10      +1.9579345e-04      +2.4275306e-05      
+4         -2.8943346e+02      +6.3005266e-04      +1.3828057e+02      +1.7144614e+01      
+5         -2.8943346e+02      +2.5920599e-10      +5.6889139e-05      +7.0533576e-06      
+6         -2.8943346e+02      +7.8654239e-10      +1.7262610e-04      +2.1402919e-05      
+7         -2.8943346e+02      +6.1896799e-10      +1.3584777e-04      +1.6842985e-05      
+8         -2.8943346e+02      +4.2439297e-10      +9.3143489e-05      +1.1548326e-05      
+Total time taken:                   5.1944349 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:      26.9536407 s
+... compute_energy_pt2:       0.1369312 s
+... compute_energy_pt3_2:      22.0630057 s
+... compute_energy_pt3_3:       5.6822584 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -289.4337768       
+   -Ecorr -0.1784371       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -289.6122139        -2.89612e+02
+   -Erelax-0.0000084       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -289.6122223        -8.36364e-06
+   -Eref  -289.4337685       
+   -Ecorr -0.1784554       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -289.6122238        -1.53071e-06
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -289.6122238        -2.84217e-13
+   -Eref  -289.4337685       
+   -Ecorr -0.1784554       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -289.6122238        -2.02704e-10
+   -Erelax0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -289.6122238        0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:              -289.6122139 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.1784371 Eh
+Partially relaxed DSRG-MRPT3 energy:      -289.6122223 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.1784455 Eh
+Relaxed DSRG-MRPT3 energy:                -289.6122238 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.1784554 Eh
+Fully relaxed DSRG-MRPT3 energy:          -289.6122238 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.1784554 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.8961288e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.8961254e+02      +3.3986171e-04      +7.4591023e+01      +9.2481125e+00      
+2         -2.8961254e+02      +7.8364337e-10      +1.7198984e-04      +2.1324032e-05      
+3         -2.8961254e+02      +8.4429530e-10      +1.8530140e-04      +2.2974456e-05      
+4         -2.8961190e+02      +6.4400170e-04      +1.4134203e+02      +1.7524187e+01      
+5         -2.8961190e+02      +2.6130920e-10      +5.7350739e-05      +7.1105888e-06      
+6         -2.8961190e+02      +7.4203399e-10      +1.6285764e-04      +2.0191783e-05      
+7         -2.8961190e+02      +6.0833827e-10      +1.3351482e-04      +1.6553735e-05      
+8         -2.8961190e+02      +3.9727865e-10      +8.7192586e-05      +1.0810508e-05      
+Time taken:                      216.7962124 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       1.9466553 s
+
+===============================================
+            Relativistic CASCI(5,8)            
+===============================================
+Will now allocate 0.050 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0057149 s
+Time taken for 1-RDM build:        0.0056558 s
+Time taken for 1-RDM build:        0.0056722 s
+Time taken for 1-RDM build:        0.0056865 s
+Time taken for 1-RDM build:        0.0056767 s
+Time taken for 1-RDM build:        0.0056465 s
+Time taken for 1-RDM build:        0.0056667 s
+Time taken for 1-RDM build:        0.0056822 s
+Time taken for 1-RDM build:        0.0056834 s
+Time taken for 1-RDM build:        0.0056660 s
+Time taken for 1-RDM build:        0.0056524 s
+Time taken for 1-RDM build:        0.0056565 s
+Time taken for 1-RDM build:        0.0056489 s
+Time taken for 1-RDM build:        0.0056577 s
+Time taken for 2-RDM build:        0.0254290 s
+Time taken for 2-RDM build:        0.0254133 s
+Time taken for 2-RDM build:        0.0253055 s
+Time taken for 2-RDM build:        0.0253577 s
+Time taken for 2-RDM build:        0.0253291 s
+Time taken for 2-RDM build:        0.0253768 s
+Time taken for 2-RDM build:        0.0253317 s
+Time taken for 2-RDM build:        0.0253546 s
+Time taken for 2-RDM build:        0.0253389 s
+Time taken for 2-RDM build:        0.0254018 s
+Time taken for 2-RDM build:        0.0253015 s
+Time taken for 2-RDM build:        0.0253208 s
+Time taken for 2-RDM build:        0.0253673 s
+Time taken for 2-RDM build:        0.0253644 s
+Time taken for 3-RDM build:        0.1494660 s
+Time taken for 3-RDM build:        0.1483262 s
+Time taken for 3-RDM build:        0.1481185 s
+Time taken for 3-RDM build:        0.1481323 s
+Time taken for 3-RDM build:        0.1480336 s
+Time taken for 3-RDM build:        0.1480043 s
+Time taken for 3-RDM build:        0.1479170 s
+Time taken for 3-RDM build:        0.1481500 s
+Time taken for 3-RDM build:        0.1480300 s
+Time taken for 3-RDM build:        0.1481774 s
+Time taken for 3-RDM build:        0.1481984 s
+Time taken for 3-RDM build:        0.1483362 s
+Time taken for 3-RDM build:        0.1496384 s
+Time taken for 3-RDM build:        0.1494122 s
+E_frzc:                         -335.1272672 Eh
+E_cas:                            -6.3636403 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                        -341.4410664 Eh
+E0 (from RDM):                  -341.4410664 Eh
+Ecorr:                            -0.2138107 Eh
+
+Timing summary
+... Hamil build:                    0.0207117 s
+... Hamil diag:                     0.0005138 s
+... RDM build:                      5.6402841 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -3.4149091e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -3.4149091e+02      +3.2849812e-10      +7.2097003e-05      +8.9388933e-06      
+2         -3.4149091e+02      +3.2838443e-10      +7.2072051e-05      +8.9357998e-06      
+3         -3.4149091e+02      +3.2798653e-10      +7.1984722e-05      +8.9249722e-06      
+4         -3.4142117e+02      +6.9735531e-02      +1.5305180e+04      +1.8976014e+03      
+5         -3.4142117e+02      +1.5667183e-09      +3.4385492e-04      +4.2632597e-05      
+6         -3.4142117e+02      +1.3034196e-09      +2.8606753e-04      +3.5467871e-05      
+7         -3.4142117e+02      +1.7383286e-09      +3.8151902e-04      +4.7302353e-05      
+8         -3.4142110e+02      +6.9890622e-05      +1.5339218e+01      +1.9018216e+00      
+9         -3.4142110e+02      +9.2740038e-10      +2.0354085e-04      +2.5235862e-05      
+10        -3.4142110e+02      +9.6150643e-10      +2.1102627e-04      +2.6163935e-05      
+11        -3.4142110e+02      +7.5050366e-10      +1.6471651e-04      +2.0422255e-05      
+12        -3.4142110e+02      +9.6383701e-10      +2.1153777e-04      +2.6227353e-05      
+13        -3.4142110e+02      +1.9558115e-09      +4.2925101e-04      +5.3220367e-05      
+Total time taken:                   5.9770470 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:      26.5179136 s
+... compute_energy_pt2:       0.1385977 s
+... compute_energy_pt3_2:      21.9801927 s
+... compute_energy_pt3_3:       5.6103826 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -341.4410664       
+   -Ecorr -0.1886368       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -341.6297032        -3.41630e+02
+   -Erelax-0.0000000       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -341.6297032        -2.77213e-08
+   -Eref  -341.4410664       
+   -Ecorr -0.1886369       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -341.6297033        -1.10060e-08
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -341.6297033        -1.02318e-12
+   -Eref  -341.4410664       
+   -Ecorr -0.1886369       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -341.6297033        -7.79892e-11
+   -Erelax-0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -341.6297033        0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:              -341.6297032 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.1886368 Eh
+Partially relaxed DSRG-MRPT3 energy:      -341.6297032 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.1886368 Eh
+Relaxed DSRG-MRPT3 energy:                -341.6297033 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.1886369 Eh
+Fully relaxed DSRG-MRPT3 energy:          -341.6297033 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.1886369 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -3.4167837e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -3.4167837e+02      +2.7205260e-10      +5.9708644e-05      +7.4029319e-06      
+2         -3.4167837e+02      +2.7182523e-10      +5.9658742e-05      +7.3967448e-06      
+3         -3.4167837e+02      +2.7176839e-10      +5.9646266e-05      +7.3951980e-06      
+4         -3.4161028e+02      +6.8097870e-02      +1.4945755e+04      +1.8530383e+03      
+5         -3.4161028e+02      +1.4672992e-09      +3.2203494e-04      +3.9927263e-05      
+6         -3.4161028e+02      +1.2289547e-09      +2.6972438e-04      +3.3441577e-05      
+7         -3.4161028e+02      +1.6262902e-09      +3.5692944e-04      +4.4253632e-05      
+8         -3.4161021e+02      +6.9756806e-05      +1.5309849e+01      +1.8981803e+00      
+9         -3.4161021e+02      +8.4378371e-10      +1.8518912e-04      +2.2960535e-05      
+10        -3.4161021e+02      +8.7612761e-10      +1.9228778e-04      +2.3840658e-05      
+11        -3.4161021e+02      +6.9616135e-10      +1.5278975e-04      +1.8943524e-05      
+12        -3.4161021e+02      +8.8618890e-10      +1.9449598e-04      +2.4114440e-05      
+13        -3.4161021e+02      +1.7820980e-09      +3.9112530e-04      +4.8493380e-05      
+Time taken:                      217.7349527 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       1.9407461 s
+
+===============================================
+            Relativistic CASCI(6,8)            
+===============================================
+Will now allocate 0.013 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0022078 s
+Time taken for 1-RDM build:        0.0021784 s
+Time taken for 1-RDM build:        0.0021803 s
+Time taken for 1-RDM build:        0.0021763 s
+Time taken for 1-RDM build:        0.0021889 s
+Time taken for 1-RDM build:        0.0021894 s
+Time taken for 1-RDM build:        0.0021758 s
+Time taken for 1-RDM build:        0.0021782 s
+Time taken for 1-RDM build:        0.0021784 s
+Time taken for 2-RDM build:        0.0086031 s
+Time taken for 2-RDM build:        0.0085654 s
+Time taken for 2-RDM build:        0.0085442 s
+Time taken for 2-RDM build:        0.0085444 s
+Time taken for 2-RDM build:        0.0085385 s
+Time taken for 2-RDM build:        0.0085394 s
+Time taken for 2-RDM build:        0.0085039 s
+Time taken for 2-RDM build:        0.0085430 s
+Time taken for 2-RDM build:        0.0085490 s
+Time taken for 3-RDM build:        0.0687845 s
+Time taken for 3-RDM build:        0.0660603 s
+Time taken for 3-RDM build:        0.0661209 s
+Time taken for 3-RDM build:        0.0660839 s
+Time taken for 3-RDM build:        0.0660548 s
+Time taken for 3-RDM build:        0.0660472 s
+Time taken for 3-RDM build:        0.0660915 s
+Time taken for 3-RDM build:        0.0660200 s
+Time taken for 3-RDM build:        0.0660126 s
+E_frzc:                         -388.5675376 Eh
+E_cas:                            -9.9659359 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                        -398.5325748 Eh
+E0 (from RDM):                  -398.5325748 Eh
+Ecorr:                            -0.1603097 Eh
+
+Timing summary
+... Hamil build:                    0.0086343 s
+... Hamil diag:                     0.0002577 s
+... RDM build:                      3.7795503 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -3.9853347e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -3.9853347e+02      +5.6296585e-09      +1.2355672e-03      +1.5319088e-04      
+2         -3.9853347e+02      +5.9783360e-09      +1.3120931e-03      +1.6267889e-04      
+3         -3.9853347e+02      +5.6479053e-09      +1.2395719e-03      +1.5368740e-04      
+4         -3.9853347e+02      +5.6580234e-09      +1.2417926e-03      +1.5396273e-04      
+5         -3.9853166e+02      +1.8163270e-03      +3.9863770e+02      +4.9424800e+01      
+6         -3.9853166e+02      +3.5533390e-09      +7.7986775e-04      +9.6691324e-05      
+7         -3.9853166e+02      +3.5755079e-09      +7.8473327e-04      +9.7294572e-05      
+8         -3.9853083e+02      +8.2294816e-04      +1.8061624e+02      +2.2393571e+01      
+Total time taken:                   4.1063712 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:      27.9195912 s
+... compute_energy_pt2:       0.1397188 s
+... compute_energy_pt3_2:      22.9154992 s
+... compute_energy_pt3_3:       5.6914749 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -398.5325748       
+   -Ecorr -0.2040046       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -398.7365795        -3.98737e+02
+   -Erelax-0.0000001       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -398.7365795        -6.87861e-08
+   -Eref  -398.5325748       
+   -Ecorr -0.2040048       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -398.7365796        -3.58332e-08
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -398.7365796        -9.66338e-13
+   -Eref  -398.5325748       
+   -Ecorr -0.2040048       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -398.7365796        -1.36538e-10
+   -Erelax0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -398.7365796        0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:              -398.7365795 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.2040046 Eh
+Partially relaxed DSRG-MRPT3 energy:      -398.7365795 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.2040047 Eh
+Relaxed DSRG-MRPT3 energy:                -398.7365796 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.2040048 Eh
+Fully relaxed DSRG-MRPT3 energy:          -398.7365796 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.2040048 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -3.9873751e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -3.9873751e+02      +5.1802544e-09      +1.1369344e-03      +1.4096197e-04      
+2         -3.9873751e+02      +5.4899374e-09      +1.2049020e-03      +1.4938888e-04      
+3         -3.9873751e+02      +5.2395421e-09      +1.1499466e-03      +1.4257527e-04      
+4         -3.9873751e+02      +5.1687721e-09      +1.1344143e-03      +1.4064952e-04      
+5         -3.9873563e+02      +1.8745074e-03      +4.1140681e+02      +5.1007968e+01      
+6         -3.9873563e+02      +3.1946570e-09      +7.0114616e-04      +8.6931086e-05      
+7         -3.9873563e+02      +3.2237608e-09      +7.0753371e-04      +8.7723042e-05      
+8         -3.9873479e+02      +8.4614386e-04      +1.8570711e+02      +2.3024758e+01      
+Time taken:                      219.1733215 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:       1.9467511 s
+
+===============================================
+            Relativistic CASCI(7,8)            
+===============================================
+Will now allocate 0.001 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0003719 s
+Time taken for 1-RDM build:        0.0003664 s
+Time taken for 1-RDM build:        0.0003633 s
+Time taken for 1-RDM build:        0.0003636 s
+Time taken for 1-RDM build:        0.0003622 s
+Time taken for 1-RDM build:        0.0003612 s
+Time taken for 2-RDM build:        0.0010357 s
+Time taken for 2-RDM build:        0.0009952 s
+Time taken for 2-RDM build:        0.0009935 s
+Time taken for 2-RDM build:        0.0009890 s
+Time taken for 2-RDM build:        0.0009959 s
+Time taken for 2-RDM build:        0.0009894 s
+Time taken for 3-RDM build:        0.0145309 s
+Time taken for 3-RDM build:        0.0123320 s
+Time taken for 3-RDM build:        0.0123224 s
+Time taken for 3-RDM build:        0.0123174 s
+Time taken for 3-RDM build:        0.0123212 s
+Time taken for 3-RDM build:        0.0123036 s
+E_frzc:                         -446.0682972 Eh
+E_cas:                           -14.7582517 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                        -460.8252020 Eh
+E0 (from RDM):                  -460.8252020 Eh
+Ecorr:                             0.0013470 Eh
+
+Timing summary
+... Hamil build:                    0.0017490 s
+... Hamil diag:                     0.0000863 s
+... RDM build:                      3.2240429 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -4.6082655e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -4.6082655e+02      +1.2022326e-08      +2.6385956e-03      +3.2714432e-04      
+2         -4.6082655e+02      +5.7600573e-09      +1.2641864e-03      +1.5673922e-04      
+3         -4.6082655e+02      +1.1622035e-08      +2.5507418e-03      +3.1625183e-04      
+4         -4.6082251e+02      +4.0408198e-03      +8.8685742e+02      +1.0995636e+02      
+5         -4.6082251e+02      +2.0031848e-08      +4.3964825e-03      +5.4509461e-04      
+Total time taken:                   3.5422335 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:      27.5083082 s
+... compute_energy_pt2:       0.1391737 s
+... compute_energy_pt3_2:      22.2476621 s
+... compute_energy_pt3_3:       5.8213737 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -460.8252020       
+   -Ecorr -0.2304707       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -461.0556727        -4.61056e+02
+   -Erelax-0.0000000       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -461.0556727        0.00000e+00
+   -Eref  -460.8252020       
+   -Ecorr -0.2304707       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -461.0556727        -1.13687e-13
+   -Erelax0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -461.0556727        0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:              -461.0556727 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.2304707 Eh
+Partially relaxed DSRG-MRPT3 energy:      -461.0556727 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.2304707 Eh
+Relaxed DSRG-MRPT3 energy:                -461.0556727 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.2304707 Eh
+Fully relaxed DSRG-MRPT3 energy:          -461.0556727 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.2304707 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -4.6105706e+02      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -4.6105706e+02      +1.0680537e-08      +2.3441070e-03      +2.9063236e-04      
+2         -4.6105706e+02      +5.5257487e-09      +1.2127617e-03      +1.5036335e-04      
+3         -4.6105706e+02      +1.0495967e-08      +2.3035984e-03      +2.8560994e-04      
+4         -4.6105290e+02      +4.1567566e-03      +9.1230261e+02      +1.1311116e+02      
+5         -4.6105290e+02      +1.8296078e-08      +4.0155248e-03      +4.9786187e-04      
+Time taken:                      141.2170982 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:      24.6781890 s
+
+===============================================
+            Relativistic CASCI(3,8)            
+===============================================
+Will now allocate 0.050 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0056481 s
+Time taken for 1-RDM build:        0.0056353 s
+Time taken for 1-RDM build:        0.0056202 s
+Time taken for 1-RDM build:        0.0056081 s
+Time taken for 1-RDM build:        0.0056150 s
+Time taken for 1-RDM build:        0.0055888 s
+Time taken for 2-RDM build:        0.0229390 s
+Time taken for 2-RDM build:        0.0229306 s
+Time taken for 2-RDM build:        0.0229177 s
+Time taken for 2-RDM build:        0.0229766 s
+Time taken for 2-RDM build:        0.0228968 s
+Time taken for 2-RDM build:        0.0230238 s
+Time taken for 3-RDM build:        0.0651057 s
+Time taken for 3-RDM build:        0.0641847 s
+Time taken for 3-RDM build:        0.0642123 s
+Time taken for 3-RDM build:        0.0643644 s
+Time taken for 3-RDM build:        0.0640879 s
+Time taken for 3-RDM build:        0.0640934 s
+E_frzc:                        -1939.7138290 Eh
+E_cas:                            -2.0100161 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                       -1941.7217616 Eh
+E0 (from RDM):                 -1941.7217616 Eh
+Ecorr:                            -0.1944870 Eh
+
+Timing summary
+... Hamil build:                    0.0165913 s
+... Hamil diag:                     0.0005913 s
+... RDM build:                     42.5996196 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -1.9417238e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -1.9417238e+03      +1.0702479e-09      +2.3489226e-04      +2.9122942e-05      
+2         -1.9417207e+03      +3.1252750e-03      +6.8591858e+02      +8.5043106e+01      
+3         -1.9417207e+03      +1.1004886e-09      +2.4152933e-04      +2.9945834e-05      
+4         -1.9417207e+03      +9.5178621e-10      +2.0889293e-04      +2.5899434e-05      
+5         -1.9417207e+03      +6.4619599e-10      +1.4182362e-04      +1.7583897e-05      
+Total time taken:                  46.2621806 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:     378.5576677 s
+... compute_energy_pt2:       1.1633704 s
+... compute_energy_pt3_2:     314.5060747 s
+... compute_energy_pt3_3:      91.2172983 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -1941.7217616       
+   -Ecorr -0.7815297       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -1942.5032913       -1.94250e+03
+   -Erelax-0.0000174       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -1942.5033087       -1.74270e-05
+   -Eref  -1941.7217443       
+   -Ecorr -0.7815651       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -1942.5033094       -6.46924e-07
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -1942.5033094       -1.81899e-12
+   -Eref  -1941.7217443       
+   -Ecorr -0.7815651       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -1942.5033094       -2.03045e-10
+   -Erelax-0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -1942.5033094       0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:             -1942.5032913 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.7815297 Eh
+Partially relaxed DSRG-MRPT3 energy:     -1942.5033087 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.7815471 Eh
+Relaxed DSRG-MRPT3 energy:               -1942.5033094 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.7815651 Eh
+Fully relaxed DSRG-MRPT3 energy:         -1942.5033094 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.7815651 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -1.9425055e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -1.9425055e+03      +1.0011263e-09      +2.1972182e-04      +2.7242047e-05      
+2         -1.9425022e+03      +3.2548247e-03      +7.1435145e+02      +8.8568334e+01      
+3         -1.9425022e+03      +1.0220447e-09      +2.2431288e-04      +2.7811265e-05      
+4         -1.9425022e+03      +8.8084562e-10      +1.9332327e-04      +2.3969042e-05      
+5         -1.9425022e+03      +6.0754246e-10      +1.3334016e-04      +1.6532080e-05      
+Time taken:                     3049.2379010 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:      24.6966646 s
+
+===============================================
+            Relativistic CASCI(4,8)            
+===============================================
+Will now allocate 0.078 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0082352 s
+Time taken for 1-RDM build:        0.0080934 s
+Time taken for 1-RDM build:        0.0080523 s
+Time taken for 1-RDM build:        0.0080287 s
+Time taken for 1-RDM build:        0.0080330 s
+Time taken for 1-RDM build:        0.0080314 s
+Time taken for 1-RDM build:        0.0080495 s
+Time taken for 1-RDM build:        0.0083282 s
+Time taken for 1-RDM build:        0.0085568 s
+Time taken for 2-RDM build:        0.0346620 s
+Time taken for 2-RDM build:        0.0346050 s
+Time taken for 2-RDM build:        0.0346429 s
+Time taken for 2-RDM build:        0.0345788 s
+Time taken for 2-RDM build:        0.0346534 s
+Time taken for 2-RDM build:        0.0345967 s
+Time taken for 2-RDM build:        0.0346341 s
+Time taken for 2-RDM build:        0.0345798 s
+Time taken for 2-RDM build:        0.0346911 s
+Time taken for 3-RDM build:        0.1520410 s
+Time taken for 3-RDM build:        0.1506040 s
+Time taken for 3-RDM build:        0.1505847 s
+Time taken for 3-RDM build:        0.1546988 s
+Time taken for 3-RDM build:        0.1506495 s
+Time taken for 3-RDM build:        0.1506867 s
+Time taken for 3-RDM build:        0.1504645 s
+Time taken for 3-RDM build:        0.1506252 s
+Time taken for 3-RDM build:        0.1505756 s
+E_frzc:                        -2092.8592106 Eh
+E_cas:                            -3.6862998 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                       -2096.5413860 Eh
+E0 (from RDM):                 -2096.5413860 Eh
+Ecorr:                            -0.2153364 Eh
+
+Timing summary
+... Hamil build:                    0.0257709 s
+... Hamil diag:                     0.0011175 s
+... RDM build:                     45.4941702 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.0965455e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.0965432e+03      +2.3344184e-03      +5.1234561e+02      +6.3522789e+01      
+2         -2.0965432e+03      +6.4164851e-10      +1.4082557e-04      +1.7460154e-05      
+3         -2.0965432e+03      +5.3205440e-10      +1.1677244e-04      +1.4477945e-05      
+4         -2.0965395e+03      +3.6890520e-03      +8.0965333e+02      +1.0038427e+02      
+5         -2.0965395e+03      +9.3723429e-10      +2.0569915e-04      +2.5503456e-05      
+6         -2.0965395e+03      +1.0586518e-09      +2.3234722e-04      +2.8807397e-05      
+7         -2.0965395e+03      +1.1709744e-09      +2.5699918e-04      +3.1863852e-05      
+8         -2.0965395e+03      +1.0372787e-09      +2.2765636e-04      +2.8225805e-05      
+Total time taken:                  49.1672175 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:     363.1539786 s
+... compute_energy_pt2:       1.1538448 s
+... compute_energy_pt3_2:     287.8948567 s
+... compute_energy_pt3_3:      72.9135714 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -2096.5413860       
+   -Ecorr -0.7881306       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -2097.3295166       -2.09733e+03
+   -Erelax-0.0000120       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -2097.3295286       -1.20041e-05
+   -Eref  -2096.5413740       
+   -Ecorr -0.7881564       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -2097.3295304       -1.81902e-06
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -2097.3295304       -1.09139e-11
+   -Eref  -2096.5413740       
+   -Ecorr -0.7881564       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -2097.3295304       -4.64297e-10
+   -Erelax0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -2097.3295304       0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:             -2097.3295166 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.7881306 Eh
+Partially relaxed DSRG-MRPT3 energy:     -2097.3295286 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.7881426 Eh
+Relaxed DSRG-MRPT3 energy:               -2097.3295304 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.7881564 Eh
+Fully relaxed DSRG-MRPT3 energy:         -2097.3295304 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.7881564 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.0973338e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.0973314e+03      +2.4180009e-03      +5.3068986e+02      +6.5797188e+01      
+2         -2.0973314e+03      +6.1027094e-10      +1.3393899e-04      +1.6606326e-05      
+3         -2.0973314e+03      +5.2341420e-10      +1.1487614e-04      +1.4242833e-05      
+4         -2.0973276e+03      +3.7928805e-03      +8.3244105e+02      +1.0320959e+02      
+5         -2.0973276e+03      +8.6583896e-10      +1.9002968e-04      +2.3560689e-05      
+6         -2.0973276e+03      +9.8270903e-10      +2.1567970e-04      +2.6740887e-05      
+7         -2.0973276e+03      +1.0700205e-09      +2.3484236e-04      +2.9116755e-05      
+8         -2.0973276e+03      +9.4087227e-10      +2.0649759e-04      +2.5602451e-05      
+Time taken:                     3312.7275205 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:      24.5197315 s
+
+===============================================
+            Relativistic CASCI(5,8)            
+===============================================
+Will now allocate 0.050 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0056708 s
+Time taken for 1-RDM build:        0.0056651 s
+Time taken for 1-RDM build:        0.0056472 s
+Time taken for 1-RDM build:        0.0056562 s
+Time taken for 1-RDM build:        0.0056553 s
+Time taken for 1-RDM build:        0.0056746 s
+Time taken for 1-RDM build:        0.0056403 s
+Time taken for 1-RDM build:        0.0056388 s
+Time taken for 1-RDM build:        0.0056500 s
+Time taken for 1-RDM build:        0.0056713 s
+Time taken for 1-RDM build:        0.0056388 s
+Time taken for 1-RDM build:        0.0056691 s
+Time taken for 1-RDM build:        0.0056300 s
+Time taken for 1-RDM build:        0.0056438 s
+Time taken for 2-RDM build:        0.0254021 s
+Time taken for 2-RDM build:        0.0253234 s
+Time taken for 2-RDM build:        0.0253549 s
+Time taken for 2-RDM build:        0.0252950 s
+Time taken for 2-RDM build:        0.0258324 s
+Time taken for 2-RDM build:        0.0252869 s
+Time taken for 2-RDM build:        0.0253458 s
+Time taken for 2-RDM build:        0.0252528 s
+Time taken for 2-RDM build:        0.0253196 s
+Time taken for 2-RDM build:        0.0252762 s
+Time taken for 2-RDM build:        0.0253475 s
+Time taken for 2-RDM build:        0.0252516 s
+Time taken for 2-RDM build:        0.0253444 s
+Time taken for 2-RDM build:        0.0252740 s
+Time taken for 3-RDM build:        0.1496456 s
+Time taken for 3-RDM build:        0.1479487 s
+Time taken for 3-RDM build:        0.1481540 s
+Time taken for 3-RDM build:        0.1483622 s
+Time taken for 3-RDM build:        0.1482313 s
+Time taken for 3-RDM build:        0.1481540 s
+Time taken for 3-RDM build:        0.1482713 s
+Time taken for 3-RDM build:        0.1481659 s
+Time taken for 3-RDM build:        0.1483936 s
+Time taken for 3-RDM build:        0.1484230 s
+Time taken for 3-RDM build:        0.1488812 s
+Time taken for 3-RDM build:        0.1485741 s
+Time taken for 3-RDM build:        0.1491935 s
+Time taken for 3-RDM build:        0.1485579 s
+E_frzc:                        -2252.3726240 Eh
+E_cas:                            -6.0718308 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                       -2258.3972569 Eh
+E0 (from RDM):                 -2258.3972569 Eh
+Ecorr:                            -0.0178409 Eh
+
+Timing summary
+... Hamil build:                    0.0209262 s
+... Hamil diag:                     0.0005352 s
+... RDM build:                     52.3786976 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.2584445e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.2584445e+03      +5.2432370e-10      +1.1507575e-04      +1.4267581e-05      
+2         -2.2584445e+03      +5.2705218e-10      +1.1567458e-04      +1.4341827e-05      
+3         -2.2584445e+03      +5.1386451e-10      +1.1278022e-04      +1.3982972e-05      
+4         -2.2583793e+03      +6.5107933e-02      +1.4289540e+04      +1.7716780e+03      
+5         -2.2583793e+03      +9.2859409e-10      +2.0380284e-04      +2.5268344e-05      
+6         -2.2583793e+03      +1.1159500e-09      +2.4492271e-04      +3.0366561e-05      
+7         -2.2583793e+03      +5.1250026e-10      +1.1248081e-04      +1.3945849e-05      
+8         -2.2583777e+03      +1.6153755e-03      +3.5453394e+02      +4.3956628e+01      
+9         -2.2583777e+03      +7.5033313e-10      +1.6467909e-04      +2.0417614e-05      
+10        -2.2583777e+03      +4.8839865e-10      +1.0719111e-04      +1.3290011e-05      
+11        -2.2583777e+03      +1.4611032e-09      +3.2067509e-04      +3.9758663e-05      
+12        -2.2583777e+03      +1.6329977e-09      +3.5840157e-04      +4.4436153e-05      
+13        -2.2583777e+03      +6.3982952e-10      +1.4042635e-04      +1.7410656e-05      
+Total time taken:                  56.0460737 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:     395.1258793 s
+... compute_energy_pt2:       1.1799777 s
+... compute_energy_pt3_2:     310.7715416 s
+... compute_energy_pt3_3:      89.5141547 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -2258.3972569       
+   -Ecorr -0.7967651       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -2259.1940220       -2.25919e+03
+   -Erelax-0.0000007       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -2259.1940226       -6.54651e-07
+   -Eref  -2258.3972562       
+   -Ecorr -0.7967667       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -2259.1940229       -2.28996e-07
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -2259.1940229       -1.50067e-11
+   -Eref  -2258.3972562       
+   -Ecorr -0.7967667       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -2259.1940229       -1.21690e-09
+   -Erelax-0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -2259.1940229       0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:             -2259.1940220 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.7967651 Eh
+Partially relaxed DSRG-MRPT3 energy:     -2259.1940226 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.7967658 Eh
+Relaxed DSRG-MRPT3 energy:               -2259.1940229 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.7967667 Eh
+Fully relaxed DSRG-MRPT3 energy:         -2259.1940229 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.7967667 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.2592402e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.2592402e+03      +4.4110493e-10      +9.6811341e-05      +1.2003082e-05      
+2         -2.2592402e+03      +4.5065462e-10      +9.8907257e-05      +1.2262943e-05      
+3         -2.2592402e+03      +4.3291948e-10      +9.5014842e-05      +1.1780345e-05      
+4         -2.2591765e+03      +6.3694285e-02      +1.3979280e+04      +1.7332106e+03      
+5         -2.2591765e+03      +8.2945917e-10      +1.8204524e-04      +2.2570744e-05      
+6         -2.2591765e+03      +9.7270458e-10      +2.1348398e-04      +2.6468653e-05      
+7         -2.2591765e+03      +4.8476068e-10      +1.0639267e-04      +1.3191016e-05      
+8         -2.2591749e+03      +1.6808176e-03      +3.6889682e+02      +4.5737398e+01      
+9         -2.2591749e+03      +7.0485839e-10      +1.5469854e-04      +1.9180183e-05      
+10        -2.2591749e+03      +4.3701220e-10      +9.5913092e-05      +1.1891713e-05      
+11        -2.2591749e+03      +1.3092176e-09      +2.8734005e-04      +3.5625643e-05      
+12        -2.2591749e+03      +1.5179467e-09      +3.3315078e-04      +4.1305452e-05      
+13        -2.2591749e+03      +5.9162630e-10      +1.2984696e-04      +1.6098979e-05      
+Time taken:                     3185.7514727 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:      23.9638708 s
+
+===============================================
+            Relativistic CASCI(6,8)            
+===============================================
+Will now allocate 0.013 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0021896 s
+Time taken for 1-RDM build:        0.0021803 s
+Time taken for 1-RDM build:        0.0021789 s
+Time taken for 1-RDM build:        0.0021732 s
+Time taken for 1-RDM build:        0.0021873 s
+Time taken for 1-RDM build:        0.0021627 s
+Time taken for 1-RDM build:        0.0021775 s
+Time taken for 1-RDM build:        0.0021837 s
+Time taken for 1-RDM build:        0.0021777 s
+Time taken for 2-RDM build:        0.0085728 s
+Time taken for 2-RDM build:        0.0085051 s
+Time taken for 2-RDM build:        0.0085232 s
+Time taken for 2-RDM build:        0.0085068 s
+Time taken for 2-RDM build:        0.0085478 s
+Time taken for 2-RDM build:        0.0085299 s
+Time taken for 2-RDM build:        0.0085022 s
+Time taken for 2-RDM build:        0.0085216 s
+Time taken for 2-RDM build:        0.0085151 s
+Time taken for 3-RDM build:        0.0677490 s
+Time taken for 3-RDM build:        0.0659800 s
+Time taken for 3-RDM build:        0.0660219 s
+Time taken for 3-RDM build:        0.0660653 s
+Time taken for 3-RDM build:        0.0660937 s
+Time taken for 3-RDM build:        0.0660832 s
+Time taken for 3-RDM build:        0.0661299 s
+Time taken for 3-RDM build:        0.0662160 s
+Time taken for 3-RDM build:        0.0661712 s
+E_frzc:                        -2418.2608262 Eh
+E_cas:                            -9.1774708 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                       -2427.4340589 Eh
+E0 (from RDM):                 -2427.4340589 Eh
+Ecorr:                            -0.1372548 Eh
+
+Timing summary
+... Hamil build:                    0.0087833 s
+... Hamil diag:                     0.0002801 s
+... RDM build:                     70.2371290 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.4274383e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.4274383e+03      +1.9413164e-09      +4.2606971e-04      +5.2825936e-05      
+2         -2.4274383e+03      +8.9721652e-10      +1.9691626e-04      +2.4414517e-05      
+3         -2.4274383e+03      +1.1737029e-09      +2.5759801e-04      +3.1938098e-05      
+4         -2.4274383e+03      +1.8349056e-09      +4.0271522e-04      +4.9930347e-05      
+5         -2.4274294e+03      +8.8831576e-03      +1.9496277e+03      +2.4172315e+02      
+6         -2.4274294e+03      +4.1914063e-09      +9.1990735e-04      +1.1405403e-04      
+7         -2.4274294e+03      +4.1027306e-09      +9.0044528e-04      +1.1164104e-04      
+8         -2.4274268e+03      +2.6102260e-03      +5.7287839e+02      +7.1027902e+01      
+Total time taken:                  74.1337209 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:     420.9209571 s
+... compute_energy_pt2:       1.2695632 s
+... compute_energy_pt3_2:     348.6062341 s
+... compute_energy_pt3_3:      84.5077720 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -2427.4340589       
+   -Ecorr -0.8066336       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -2428.2406924       -2.42824e+03
+   -Erelax-0.0000012       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -2428.2406936       -1.15871e-06
+   -Eref  -2427.4340577       
+   -Ecorr -0.8066364       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -2428.2406941       -5.33357e-07
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -2428.2406941       -1.50067e-11
+   -Eref  -2427.4340577       
+   -Ecorr -0.8066364       
+<Psi^(2)|Hbar^(2)|Psi^(2)>    -2428.2406941       -1.95723e-09
+   -Erelax0.0000000       
+<Psi^(2)|Hbar^(3)|Psi^(2)>    -2428.2406941       0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:             -2428.2406924 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.8066336 Eh
+Partially relaxed DSRG-MRPT3 energy:     -2428.2406936 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.8066347 Eh
+Relaxed DSRG-MRPT3 energy:               -2428.2406941 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.8066364 Eh
+Fully relaxed DSRG-MRPT3 energy:         -2428.2406941 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.8066364 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.4282451e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.4282451e+03      +1.7375896e-09      +3.8135684e-04      +4.7282245e-05      
+2         -2.4282451e+03      +9.2768460e-10      +2.0360323e-04      +2.5243596e-05      
+3         -2.4282451e+03      +1.1491466e-09      +2.5220852e-04      +3.1269885e-05      
+4         -2.4282451e+03      +1.6516424e-09      +3.6249360e-04      +4.4943500e-05      
+5         -2.4282359e+03      +9.1983763e-03      +2.0188102e+03      +2.5030069e+02      
+6         -2.4282359e+03      +4.0004124e-09      +8.7798904e-04      +1.0885682e-04      
+7         -2.4282359e+03      +3.9376573e-09      +8.6421588e-04      +1.0714916e-04      
+8         -2.4282332e+03      +2.6331892e-03      +5.7791822e+02      +7.1652761e+01      
+Time taken:                     3215.9623575 s
+===============================================
+===============================================
+              PySCF DHF interface              
+===============================================
+
+Timing report
+....integral reading:      24.2992506 s
+
+===============================================
+            Relativistic CASCI(7,8)            
+===============================================
+Will now allocate 0.001 MB memory for the CASCI Hamiltonian!
+Time taken for 1-RDM build:        0.0003746 s
+Time taken for 1-RDM build:        0.0003672 s
+Time taken for 1-RDM build:        0.0003607 s
+Time taken for 1-RDM build:        0.0003593 s
+Time taken for 1-RDM build:        0.0003633 s
+Time taken for 1-RDM build:        0.0003610 s
+Time taken for 2-RDM build:        0.0010371 s
+Time taken for 2-RDM build:        0.0010011 s
+Time taken for 2-RDM build:        0.0009937 s
+Time taken for 2-RDM build:        0.0009973 s
+Time taken for 2-RDM build:        0.0009904 s
+Time taken for 2-RDM build:        0.0009944 s
+Time taken for 3-RDM build:        0.0137644 s
+Time taken for 3-RDM build:        0.0123386 s
+Time taken for 3-RDM build:        0.0123174 s
+Time taken for 3-RDM build:        0.0123227 s
+Time taken for 3-RDM build:        0.0123119 s
+Time taken for 3-RDM build:        0.0123167 s
+E_frzc:                        -2590.5378304 Eh
+E_cas:                           -13.1880855 Eh
+E_nuc:                             0.0000000 Eh
+E_casci:                       -2603.7203212 Eh
+E0 (from RDM):                 -2603.7203212 Eh
+Ecorr:                            -0.0318830 Eh
+
+Timing summary
+... Hamil build:                    0.0018523 s
+... Hamil diag:                     0.0000982 s
+... RDM build:                     42.9544554 s
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.6037259e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.6037259e+03      +9.2413757e-09      +2.0282475e-03      +2.5147076e-04      
+2         -2.6037259e+03      +1.8784249e-08      +4.1226661e-03      +5.1114569e-04      
+3         -2.6037259e+03      +9.8884811e-09      +2.1702707e-03      +2.6907941e-04      
+4         -2.6037091e+03      +1.6783801e-02      +3.6836186e+03      +4.5671072e+02      
+5         -2.6037091e+03      +7.4087438e-09      +1.6260313e-03      +2.0160228e-04      
+Total time taken:                  46.6110888 s
+===============================================
+
+===============================================
+            Relativistic DSRG-MRPT3            
+===============================================
+... compute_energy_pt3_1:     366.3787575 s
+... compute_energy_pt2:       1.1839509 s
+... compute_energy_pt3_2:     318.1075845 s
+... compute_energy_pt3_3:      79.6835253 s
+-----------------------------------------------
+        DSRG-MRPT3 reference relaxation        
+-----------------------------------------------
+Iter                          Energy              Delta E   
+   -Eref  -2603.7203212       
+   -Ecorr -0.8237682       
+<Psi^(0)|Hbar^(0)|Psi^(0)>    -2604.5440895       -2.60454e+03
+   -Erelax-0.0000000       
+<Psi^(0)|Hbar^(1)|Psi^(0)>    -2604.5440895       0.00000e+00
+   -Eref  -2603.7203212       
+   -Ecorr -0.8237682       
+<Psi^(1)|Hbar^(1)|Psi^(1)>    -2604.5440895       -4.54747e-13
+   -Erelax-0.0000000       
+<Psi^(1)|Hbar^(2)|Psi^(1)>    -2604.5440895       0.00000e+00
+Unrelaxed DSRG-MRPT3 energy:             -2604.5440895 Eh
+Unrelaxed DSRG-MRPT3 E_corr:                -0.8237682 Eh
+Partially relaxed DSRG-MRPT3 energy:     -2604.5440895 Eh
+Partially relaxed DSRG-MRPT3 E_corr:        -0.8237682 Eh
+Relaxed DSRG-MRPT3 energy:               -2604.5440895 Eh
+Relaxed DSRG-MRPT3 E_corr:                  -0.8237682 Eh
+Fully relaxed DSRG-MRPT3 energy:         -2604.5440895 Eh
+Fully relaxed DSRG-MRPT3 E_corr:            -0.8237682 Eh
+State     Energy / Eh         Splitting / Eh      Splitting / cm-1    Splitting / meV     
+0         -2.6045498e+03      +0.0000000e+00      +0.0000000e+00      +0.0000000e+00      
+1         -2.6045498e+03      +8.8261913e-09      +1.9371251e-03      +2.4017301e-04      
+2         -2.6045498e+03      +1.7592356e-08      +3.8610758e-03      +4.7871262e-04      
+3         -2.6045498e+03      +9.1299626e-09      +2.0037952e-03      +2.4843905e-04      
+4         -2.6045326e+03      +1.7241421e-02      +3.7840544e+03      +4.6916318e+02      
+5         -2.6045326e+03      +6.9553607e-09      +1.5265252e-03      +1.8926510e-04      
+Time taken:                     1944.6782281 s
+===============================================
